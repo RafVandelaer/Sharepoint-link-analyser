@@ -1,0 +1,167 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="description" content="Analyze SharePoint sharing links in a secure, privacy-friendly way. All analysis happens locally in your browser.">
+  <title>SharePoint Link Analyzer</title>
+  <link rel="stylesheet" href="/vendor/fa/css/all.min.css">
+  <link rel="stylesheet" href="css/variables.css">
+  <link rel="stylesheet" href="css/main.css">
+  <link rel="stylesheet" href="css/components.css">
+</head>
+<body>
+  <header class="site-header">
+    <div class="container">
+      <nav class="nav-main">
+        <div class="nav-brand">
+          <h1><a href="#" id="brand-link" class="brand-link"><span class="brand-logo" aria-hidden="true"><i class="fa-solid fa-chart-line"></i></span> SharePoint Link Analyzer</a></h1>
+        </div>
+              <button class="btn btn-secondary btn-sm theme-toggle" id="theme-toggle" aria-label="Toggle theme">
+                <i id="theme-icon" class="fa-solid fa-moon"></i>
+              </button>
+        <ul class="nav-links">
+          <li>
+            <a href="#step-1" class="nav-link" data-step="1">
+              <span class="step-number">1</span>
+              <i class="fa-solid fa-wand-magic-sparkles"></i>
+              <span>Script Builder</span>
+            </a>
+          </li>
+          <li>
+            <a href="#step-2" class="nav-link" data-step="2">
+              <span class="step-number">2</span>
+              <i class="fa-solid fa-plug"></i>
+              <span>App Setup</span>
+            </a>
+          </li>
+          <li>
+            <a href="#step-3" class="nav-link" data-step="3">
+              <span class="step-number">3</span>
+              <i class="fa-solid fa-chart-pie"></i>
+              <span>Analyse</span>
+            </a>
+          </li>
+        </ul>
+      </nav>
+    </div>
+  </header>
+
+  <main id="app">
+    <!-- Landing Page -->
+    <section id="landing" class="section landing-section">
+      <div class="container">
+        <div class="hero">
+          <h1 class="hero-title">Analyze Your SharePoint Sharing Links</h1>
+          <p class="hero-subtitle">
+            Get complete insights into all shared links within your SharePoint environment. 
+            100% privacy-friendly: all analysis happens locally in your browser.
+          </p>
+          <div class="hero-cta">
+            <button class="btn btn-primary btn-lg" id="start-analysis-btn">
+              Start Analysis →
+            </button>
+            <button class="btn btn-secondary btn-lg" id="demo-btn">
+              <i class="fa-solid fa-play"></i> Try Demo
+            </button>
+          </div>
+        </div>
+
+        <div class="features-grid">
+          <div class="feature-card card card--accent-blue">
+            <div class="card-body">
+              <div class="feature-icon"><i class="fa-solid fa-shield-halved icon-blue"></i></div>
+              <h3>Privacy First</h3>
+              <p>All data stays local in your browser. We don't store any data.</p>
+            </div>
+          </div>
+          <div class="feature-card card card--accent-amber">
+            <div class="card-body">
+              <div class="feature-icon"><i class="fa-solid fa-bolt icon-amber"></i></div>
+              <h3>Fast & Efficient</h3>
+              <p>Uses asynchronous processing for fast scans of large tenants.</p>
+            </div>
+          </div>
+          <div class="feature-card card card--accent-purple">
+            <div class="card-body">
+              <div class="feature-icon"><i class="fa-solid fa-chart-simple icon-purple"></i></div>
+              <h3>Deep Insights</h3>
+              <p>Visualizations, statistics and an interactive tree view of your structure.</p>
+            </div>
+          </div>
+          <div class="feature-card card card--accent-teal">
+            <div class="card-body">
+              <div class="feature-icon"><i class="fa-solid fa-user-shield icon-teal"></i></div>
+              <h3>Security Focus</h3>
+              <p>Identify anonymous links, non-expiring links and more.</p>
+            </div>
+          </div>
+        </div>
+
+        <div class="info-section">
+          <div class="card">
+            <div class="card-header">
+              <h3>Why do I need to run the script myself?</h3>
+            </div>
+            <div class="card-body">
+              <p><strong>Privacy & Security:</strong> By running the script yourself in your own environment, we have no access to your SharePoint data. This is the safest way to ensure compliance and privacy.</p>
+              <p><strong>Performance:</strong> SharePoint scans can take a long time for large tenants. By running locally, you can execute the scan at your own pace without server limitations.</p>
+              <p><strong>Control:</strong> You have complete control over which sites are scanned, what data is collected, and where the results are stored.</p>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- Step 1: Script Builder -->
+    <section id="step-1" class="section step-section" style="display:none;">
+      <div class="container">
+        <div class="step-header">
+          <span class="step-badge">Step 1 of 3</span>
+          <h2>Script Builder</h2>
+          <p>Configure the parameters for your SharePoint scan</p>
+        </div>
+        
+        <script-builder-component></script-builder-component>
+      </div>
+    </section>
+
+    <!-- Step 2: App Registration Guide -->
+    <section id="step-2" class="section step-section" style="display:none;">
+      <div class="container">
+        <div class="step-header">
+          <span class="step-badge">Step 2 of 3</span>
+          <h2>App Setup & Script Download</h2>
+          <p>Configure your Azure AD app registration and download the script</p>
+        </div>
+        
+        <app-guide-component></app-guide-component>
+      </div>
+    </section>
+
+    <!-- Step 3: Data Analysis -->
+    <section id="step-3" class="section step-section" style="display:none;">
+      <div class="container">
+        <div class="step-header">
+          <span class="step-badge">Step 3 of 3</span>
+          <h2>Data Analysis</h2>
+          <p>Upload your CSV or JSON file for analysis</p>
+        </div>
+        
+        <data-analyzer-component></data-analyzer-component>
+      </div>
+    </section>
+  </main>
+
+  <footer class="site-footer">
+    <div class="container">
+      <p>&copy; 2025 SharePoint Link Analyzer. No data is stored. 
+        • <a id="github-link" href="https://github.com/" target="_blank" rel="noopener noreferrer" title="Visit GitHub profile">GitHub</a>
+      </p>
+    </div>
+  </footer>
+
+  <script type="module" src="js/app.js"></script>
+  <script type="module" src="js/theme.js"></script>
+</body>
+</html>

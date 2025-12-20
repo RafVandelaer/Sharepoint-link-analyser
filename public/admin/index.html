@@ -1,0 +1,331 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Admin Dashboard - SharePoint Link Analyzer</title>
+  <link rel="stylesheet" href="/vendor/fa/css/all.min.css">
+  <link rel="stylesheet" href="../css/variables.css">
+  <link rel="stylesheet" href="../css/main.css">
+  <link rel="stylesheet" href="../css/components.css">
+  <style>
+    .admin-container {
+      max-width: 1600px;
+      margin: 0 auto;
+      padding: var(--spacing-xl);
+    }
+    
+    .login-container {
+      max-width: 450px;
+      margin: 100px auto;
+    }
+    
+    .dashboard-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: var(--spacing-2xl);
+      flex-wrap: wrap;
+      gap: var(--spacing-md);
+    }
+    
+    .dashboard-title h1 {
+      margin: 0;
+      display: flex;
+      align-items: center;
+      gap: var(--spacing-sm);
+    }
+    
+    .dashboard-title p {
+      margin: var(--spacing-xs) 0 0 0;
+      color: var(--color-text-secondary);
+    }
+    
+    .dashboard-actions {
+      display: flex;
+      gap: var(--spacing-sm);
+      align-items: center;
+    }
+    
+    .refresh-indicator {
+      display: inline-flex;
+      align-items: center;
+      gap: var(--spacing-xs);
+      font-size: var(--font-size-sm);
+      color: var(--color-text-secondary);
+    }
+    
+    .refresh-indicator.loading {
+      color: var(--accent-blue);
+    }
+    
+    @keyframes spin {
+      from { transform: rotate(0deg); }
+      to { transform: rotate(360deg); }
+    }
+    
+    .refresh-indicator.loading i {
+      animation: spin 1s linear infinite;
+    }
+    
+    .dashboard-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+      gap: var(--spacing-lg);
+      margin-bottom: var(--spacing-2xl);
+    }
+    
+    .metric-card {
+      background: var(--color-surface);
+      border: 1px solid var(--color-border);
+      border-radius: var(--radius-lg);
+      padding: var(--spacing-xl);
+      position: relative;
+      overflow: hidden;
+      transition: transform 0.2s, box-shadow 0.2s;
+    }
+    
+    .metric-card:hover {
+      transform: translateY(-2px);
+      box-shadow: var(--shadow-md);
+    }
+    
+    .metric-card-icon {
+      position: absolute;
+      top: var(--spacing-md);
+      right: var(--spacing-md);
+      font-size: 3rem;
+      opacity: 0.25;
+    }
+    
+    .metric-value {
+      font-size: 3rem;
+      font-weight: var(--font-weight-bold);
+      color: var(--color-text-primary);
+      margin: var(--spacing-sm) 0;
+      position: relative;
+      z-index: 1;
+    }
+    
+    .metric-label {
+      color: var(--color-text-secondary);
+      font-size: var(--font-size-base);
+      font-weight: var(--font-weight-semibold);
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+    }
+    
+    .metric-trend {
+      margin-top: var(--spacing-sm);
+      font-size: var(--font-size-sm);
+      display: flex;
+      align-items: center;
+      gap: var(--spacing-xs);
+    }
+    
+    .metric-trend.positive {
+      color: var(--accent-green);
+    }
+    
+    .metric-trend.negative {
+      color: var(--color-danger);
+    }
+    
+    .charts-container {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(500px, 1fr));
+      gap: var(--spacing-xl);
+      margin-bottom: var(--spacing-2xl);
+    }
+    
+    .chart-container {
+      background: var(--color-surface);
+      border: 1px solid var(--color-border);
+      border-radius: var(--radius-lg);
+      padding: var(--spacing-xl);
+    }
+    
+    .chart-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: var(--spacing-lg);
+    }
+    
+    .chart-header h3 {
+      margin: 0;
+      display: flex;
+      align-items: center;
+      gap: var(--spacing-sm);
+    }
+    
+    .events-table {
+      width: 100%;
+      border-collapse: collapse;
+    }
+    
+    .events-table th,
+    .events-table td {
+      padding: var(--spacing-md);
+      text-align: left;
+      border-bottom: 1px solid var(--color-border-light);
+    }
+    
+    .events-table th {
+      background: var(--color-bg-tertiary);
+      font-weight: var(--font-weight-semibold);
+      position: sticky;
+      top: 0;
+      z-index: 10;
+    }
+    
+    .events-table tbody tr:hover {
+      background: var(--color-surface-hover);
+    }
+    
+    .event-data {
+      font-family: monospace;
+      font-size: var(--font-size-sm);
+      color: var(--color-text-secondary);
+      max-width: 300px;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+    
+    .session-id {
+      font-family: monospace;
+      font-size: var(--font-size-sm);
+      color: var(--accent-purple);
+    }
+    
+    .table-container {
+      max-height: 600px;
+      overflow-y: auto;
+    }
+    
+    @media (max-width: 768px) {
+      .dashboard-grid {
+        grid-template-columns: 1fr;
+      }
+      
+      .charts-container {
+        grid-template-columns: 1fr;
+      }
+      
+      .dashboard-header {
+        flex-direction: column;
+        align-items: flex-start;
+      }
+    }
+  </style>
+</head>
+<body>
+  <div class="admin-container">
+    <div id="login-view" class="login-container">
+      <button class="btn btn-secondary btn-sm" id="theme-toggle-login" aria-label="Toggle theme" style="position: fixed; top: var(--spacing-lg); right: var(--spacing-lg);">
+        <i id="theme-icon-login" class="fa-solid fa-moon"></i>
+      </button>
+      
+      <div class="card">
+        <div class="card-header">
+          <h2><i class="fa-solid fa-shield-halved" style="color: #0078d4;"></i> Admin Login</h2>
+        </div>
+        <div class="card-body">
+          <form id="login-form">
+            <div class="form-group">
+              <label class="form-label" for="admin-token">Admin Token</label>
+              <input 
+                type="password" 
+                id="admin-token" 
+                class="form-control" 
+                required 
+                placeholder="Enter your admin token"
+                autocomplete="current-password"
+              >
+            </div>
+            <button type="submit" class="btn btn-primary w-100">
+              <i class="fa-solid fa-right-to-bracket"></i> Login
+            </button>
+          </form>
+          <div id="login-error" class="alert alert-danger" style="display:none; margin-top: var(--spacing-md);">
+            Invalid token. Please try again.
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div id="dashboard-view" style="display:none;">
+      <div class="dashboard-header">
+        <div class="dashboard-title">
+          <h1>
+            <i class="fa-solid fa-chart-line" style="color: #0078d4;"></i>
+            Analytics Dashboard
+          </h1>
+          <p>Real-time insights into SharePoint Link Analyzer usage</p>
+        </div>
+        <div class="dashboard-actions">
+          <span class="refresh-indicator" id="refresh-indicator">
+            <i class="fa-solid fa-clock"></i>
+            <span id="last-update">Just now</span>
+          </span>
+          <button class="btn btn-secondary btn-sm" id="refresh-btn">
+            <i class="fa-solid fa-rotate"></i> Refresh
+          </button>
+          <button class="btn btn-secondary btn-sm" id="theme-toggle-dash" aria-label="Toggle theme">
+            <i id="theme-icon-dash" class="fa-solid fa-moon"></i>
+          </button>
+          <button class="btn btn-secondary" id="logout-btn">
+            <i class="fa-solid fa-right-from-bracket"></i> Logout
+          </button>
+        </div>
+      </div>
+
+      <div class="dashboard-grid" id="metrics-grid">
+        <!-- Metrics will be inserted here -->
+      </div>
+
+      <div class="charts-container">
+        <div class="chart-container">
+          <div class="chart-header">
+            <h3><i class="fa-solid fa-calendar-days" style="color: #0078d4;"></i> Daily Activity (Last 30 Days)</h3>
+          </div>
+          <canvas id="daily-chart" width="800" height="350"></canvas>
+        </div>
+
+        <div class="chart-container">
+          <div class="chart-header">
+            <h3><i class="fa-solid fa-chart-pie" style="color: #8764b8;"></i> Event Types Distribution</h3>
+          </div>
+          <canvas id="events-chart" width="500" height="350"></canvas>
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="card-header">
+          <h3><i class="fa-solid fa-list" style="color: #00b294;"></i> Recent Events</h3>
+        </div>
+        <div class="card-body">
+          <div class="table-container">
+            <table class="events-table" id="events-table">
+              <thead>
+                <tr>
+                  <th>Timestamp</th>
+                  <th>Event</th>
+                  <th>Session ID</th>
+                  <th>Details</th>
+                </tr>
+              </thead>
+              <tbody>
+                <!-- Events will be inserted here -->
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script src="/admin/dashboard.js"></script>
+</body>
+</html>

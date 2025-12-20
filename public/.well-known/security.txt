@@ -1,0 +1,6 @@
+Contact: security@yourdomain.com
+Expires: 2026-12-18T00:00:00.000Z
+Preferred-Languages: en, nl
+Canonical: https://yourdomain.com/.well-known/security.txt
+Policy: https://yourdomain.com/security-policy.md
+Acknowledgments: https://yourdomain.com/security-acknowledgments.html
