@@ -34,13 +34,13 @@ Sharepoint-link-analyser/
 │           └── helpers.js
 ├── api/                        # Backend (minimal)
 │   └── server.js               # Express server for analytics
-├── .github/                    # Example data
-│   ├── copilot-instructions.md
+├── .github/                    # Documentation and examples
+│   ├── copilot-instructions.md # Code quality guidelines
+│   ├── PROJECT_REQUIREMENTS.md # Technical specifications
 │   └── reports/                # Example CSV files
 ├── GetAllSharingLinks.ps1      # PowerShell script (async, optimized)
 ├── package.json                # Node dependencies
 ├── README.md                   # Full documentation
-├── PROJECT_REQUIREMENTS.md     # Technical specifications
 └── .gitignore
 ```
 
@@ -264,8 +264,9 @@ The project uses a consistent design system:
 ## 📚 Further Documentation
 
 - **README.md**: Full project documentation
-- **PROJECT_REQUIREMENTS.md**: Technical specifications and architecture
+- **.github/PROJECT_REQUIREMENTS.md**: Technical specifications and architecture
 - **.github/copilot-instructions.md**: Code quality guidelines
+- **GitHub Repository**: https://github.com/RafVandelaer/Sharepoint-link-analyser
 
 ## 🤝 Support
 
