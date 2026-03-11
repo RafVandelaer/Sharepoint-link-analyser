@@ -3,7 +3,8 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>SharePoint CSV Analyzer</title>
+  <title>Sharepoint Link Analyzer</title>
+  <link rel="icon" type="image/svg+xml" href="./web-assets/favicon.svg">
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.2/css/all.min.css" referrerpolicy="no-referrer">
   <style>
     :root {
@@ -30,6 +31,8 @@
 
     body {
       margin: 0;
+      display: flex;
+      flex-direction: column;
       font-family: var(--sans);
       color: var(--ink);
       background:
@@ -46,9 +49,68 @@
     }
 
     .shell {
+      width: 100%;
+      flex: 1 0 auto;
       max-width: 1440px;
       margin: 0 auto;
       padding: 32px 20px 64px;
+    }
+
+    .site-footer {
+      width: 100%;
+      flex-shrink: 0;
+      max-width: 1440px;
+      margin: 0 auto;
+      padding: 0 20px 32px;
+    }
+
+    .footer-card {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 16px;
+      padding: 18px 24px;
+      color: var(--muted);
+    }
+
+    .footer-links {
+      display: flex;
+      align-items: center;
+      gap: 16px;
+      flex-wrap: wrap;
+    }
+
+    .footer-center {
+      flex: 1;
+      display: flex;
+      justify-content: center;
+    }
+
+    .footer-links a {
+      text-decoration: none;
+      font-weight: 600;
+      color: var(--ink);
+    }
+
+    .footer-links a:hover {
+      color: var(--brand-strong);
+    }
+
+    .coffee-link {
+      display: inline-flex;
+      align-items: center;
+      gap: 10px;
+      font: inherit;
+      color: var(--ink);
+      text-decoration: none;
+    }
+
+    .coffee-link:hover {
+      color: var(--brand-strong);
+    }
+
+    .coffee-link i {
+      color: var(--accent);
     }
 
     .hero {
@@ -277,12 +339,53 @@
       justify-content: space-between;
     }
 
+    .tree-card .filters {
+      flex-wrap: nowrap;
+      justify-content: flex-end;
+      flex: 1;
+    }
+
+    .tree-card .search {
+      flex: 0 1 420px;
+      width: min(100%, 420px);
+    }
+
+    .tree-card select {
+      flex: 0 0 auto;
+    }
+
     .guide-card {
-      padding: 20px 24px;
-      margin-bottom: 18px;
+      padding: 0 24px;
+      margin-bottom: 0;
+      max-height: 0;
+      opacity: 0;
+      overflow: hidden;
+      pointer-events: none;
+      transform: translateY(-10px);
+      border-color: transparent;
+      box-shadow: none;
       background:
         linear-gradient(135deg, rgba(217, 119, 6, 0.08), rgba(255, 255, 255, 0.84)),
         var(--surface);
+      transition:
+        max-height 300ms ease,
+        opacity 220ms ease,
+        transform 300ms ease,
+        padding 300ms ease,
+        margin-bottom 300ms ease,
+        border-color 220ms ease,
+        box-shadow 220ms ease;
+    }
+
+    .guide-card.is-open {
+      padding: 20px 24px;
+      margin-bottom: 18px;
+      max-height: 1200px;
+      opacity: 1;
+      pointer-events: auto;
+      transform: translateY(0);
+      border-color: rgba(216, 209, 198, 0.9);
+      box-shadow: var(--shadow);
     }
 
     .guide-card h3 {
@@ -310,6 +413,17 @@
       text-transform: uppercase;
       letter-spacing: 0.06em;
       color: var(--brand-strong);
+    }
+
+    .guide-params {
+      display: grid;
+      gap: 8px;
+      margin-top: 10px;
+    }
+
+    .guide-params code {
+      display: inline-block;
+      margin-right: 8px;
     }
 
     .filters input,
@@ -422,6 +536,23 @@
       color: var(--muted);
     }
 
+    .node-link {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      width: 32px;
+      height: 32px;
+      border-radius: 10px;
+      color: var(--brand-strong);
+      background: rgba(15, 118, 110, 0.1);
+      text-decoration: none;
+      flex-shrink: 0;
+    }
+
+    .node-link:hover {
+      background: rgba(15, 118, 110, 0.18);
+    }
+
     .badge {
       border-radius: 999px;
       padding: 3px 8px;
@@ -530,11 +661,30 @@
       .grid-3 {
         grid-template-columns: 1fr;
       }
+
+      .footer-card {
+        flex-direction: column;
+        align-items: flex-start;
+      }
+
+      .footer-center {
+        width: 100%;
+        justify-content: flex-start;
+      }
     }
 
     @media (max-width: 720px) {
       .shell {
         padding: 20px 14px 40px;
+      }
+
+      .tree-card .toolbar,
+      .tree-card .filters {
+        flex-wrap: wrap;
+      }
+
+      .tree-card .filters {
+        justify-content: flex-start;
       }
 
       .guide-steps {
@@ -556,14 +706,14 @@
   <main class="shell">
     <section class="hero">
       <article class="panel hero-copy">
-        <h1>SharePoint CSV Analyzer</h1>
+        <h1>Sharepoint Link Analyzer</h1>
         <p>
           Upload a CSV export from the PowerShell script and analyze everything locally in the browser.
           This first version shows core metrics, simple charts, a full tree view based on `ItemPath`,
           and a detail panel for each node.
         </p>
         <div class="button-row" style="margin-top: 18px;">
-          <button class="secondary" id="toggle-guide" type="button">Quick Guide</button>
+          <button class="secondary" id="toggle-guide" type="button" aria-expanded="false" aria-controls="guide-panel">Quick Guide</button>
           <button class="secondary" id="download-script" type="button">Download Script</button>
         </div>
       </article>
@@ -589,32 +739,83 @@
       </aside>
     </section>
 
-    <section class="panel guide-card hidden" id="guide-panel">
+    <section class="panel guide-card" id="guide-panel" aria-hidden="true">
       <div class="toolbar" style="margin-bottom: 0;">
         <div>
           <h3>Quick Guide</h3>
-          <div class="hint">First download the script, then run it, then upload the generated CSV here.</div>
+          <div class="hint">Start with a quick overview, create your Entra app, run the script, and then upload the generated CSV here.</div>
         </div>
         <button class="secondary" id="close-guide" type="button">Close</button>
       </div>
       <div class="guide-steps">
         <article class="guide-step">
-          <strong>1. Download the script</strong>
+          <strong>1. What the script does</strong>
           <p class="hint">
-            Download `getallsharinglinks-full.ps1` from this repo or copy the same file into your SharePoint admin working folder.
-            Keep the script next to an output folder so the generated CSV ends up in a predictable location.
+            The script signs in interactively and scans the SharePoint sites you selected.
+          </p>
+          <p class="hint">
+            It checks document libraries, looks at files and folders, and collects the sharing links it finds into one CSV export.
+          </p>
+          <p class="hint">
+            If temporary extra access is needed to complete the scan, the script adds that access, logs it, and removes it again afterwards.
+          </p>
+          <p class="hint">
+            This page then turns that CSV into summaries, charts, and a browsable tree view so you can review the results more easily.
+          </p>
+          <p class="hint">
+            We do not store, keep, or analyze your CSV data on a server. Everything here runs locally in your browser with privacy in mind.
           </p>
         </article>
         <article class="guide-step">
-          <strong>2. Run the script</strong>
+          <strong>2. Create one Entra App Registration</strong>
           <p class="hint">
-            Open PowerShell 7, move to the folder containing the script, and run for example:
+            Go to <code>Entra Admin Center</code>.
           </p>
-          <code>pwsh ./getallsharinglinks-full.ps1 -TenantName yourtenant -OutputDirectory ./output</code>
           <p class="hint">
-            `-TenantName yourtenant` is often the tenant prefix from `yourtenant.onmicrosoft.com`.
-            Sign in through the interactive prompt, let the scan finish, then upload the generated `SharingLinks-*.csv` in this page.
+            Open <code>App registrations</code> and choose <code>New registration</code>.
           </p>
+          <p class="hint">
+            Use these settings:
+            <br>Name: <code>PnP PowerShell Login</code>
+            <br>Supported account types: <code>Accounts in any organizational directory (Multitenant)</code>
+            <br>Redirect URI: <code>Public client / native</code> with <code>http://localhost</code>
+          </p>
+          <p class="hint">
+            Then open the new app registration and go to <code>Authentication</code>.
+          </p>
+          <p class="hint">
+            Set <code>Allow public client flows</code> to <code>Yes</code>.
+          </p>
+          <p class="hint">
+            Finally, go to <code>Overview</code> and copy the <code>Application (client) ID</code>.
+          </p>
+          <p class="hint">
+            You will use it like this:
+            <br><code>-ClientId "xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx"</code>
+          </p>
+        </article>
+        <article class="guide-step">
+          <strong>3. Run the script</strong>
+          <p class="hint">
+            Download `getallsharinglinks-full.ps1`, open PowerShell 7, move to the folder containing the script, and run for example:
+          </p>
+          <code>pwsh ./getallsharinglinks-full.ps1 -TenantName yourtenant -ClientId "xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx" -OutputDirectory ./output</code>
+          <p class="hint">
+            `yourtenant` is often the tenant prefix from `yourtenant.onmicrosoft.com` and also the part before
+            `-admin.sharepoint.com`. Sign in through the interactive prompt, let the scan finish, then upload the generated
+            `SharingLinks-*.csv` in this page.
+          </p>
+        </article>
+        <article class="guide-step">
+          <strong>4. Optional parameters</strong>
+          <div class="guide-params hint">
+            <div><code>-SiteUrl</code> Scan only one specific SharePoint site instead of the broader tenant scope.</div>
+            <div><code>-IncludeOneDrive</code> Include personal OneDrive sites in the scan.</div>
+            <div><code>-MaxSites</code> Limit how many sites are processed during a test run.</div>
+            <div><code>-MaxLibrariesPerSite</code> Limit the number of libraries checked per site.</div>
+            <div><code>-MaxItemsPerLibrary</code> Limit the number of files and folders checked per library.</div>
+            <div><code>-RecoveryOnly</code> Only finish the cleanup of a previous interrupted run.</div>
+          </div>
         </article>
       </div>
     </section>
@@ -686,6 +887,23 @@
       </section>
     </section>
   </main>
+
+  <footer class="site-footer">
+    <div class="panel footer-card">
+      <div class="footer-links">
+        <a href="https://github.com/RafVandelaer/Sharepoint-link-analyser" target="_blank" rel="noreferrer noopener">GitHub</a>
+      </div>
+      <div class="footer-center">
+        <a class="coffee-link" href="https://buymeacoffee.com/rafvandelaer" target="_blank" rel="noreferrer noopener">
+          <i class="fa-solid fa-mug-hot" aria-hidden="true"></i>
+          <span>Buy me a coffee</span>
+        </a>
+      </div>
+      <div class="footer-links">
+        <a href="https://rafvandelaer.be" target="_blank" rel="noreferrer noopener">rafvandelaer.be</a>
+      </div>
+    </div>
+  </footer>
 
   <script>
     const REQUIRED_COLUMNS = [
@@ -862,7 +1080,7 @@
         : row.ItemPath;
 
       const rawSegments = relativeItemPath.split("/").map((segment) => decodeURIComponent(segment).trim()).filter(Boolean);
-      const folderSegments = rawSegments.slice(0, Math.max(rawSegments.length - 1, 0));
+      const folderSegments = rawSegments.slice(1, Math.max(rawSegments.length - 1, 1));
 
       return {
         ...row,
@@ -873,12 +1091,34 @@
         _recipientCount: recipients.length,
         _recipients: recipients,
         _safeItemType: (row.ItemType || "Unknown").trim() || "Unknown",
+        _relativeSegments: rawSegments,
         _folderSegments: folderSegments,
         _displayPath: [row.SiteTitle, row.LibraryTitle, ...folderSegments, row.ItemName].filter(Boolean).join(" / "),
         _searchBlob: [
           row.SiteTitle, row.LibraryTitle, row.ItemName, row.ItemPath, row.GrantedTo, row.LinkId
         ].join(" ").toLowerCase()
       };
+    }
+
+    function buildSharePointItemUrl(siteUrl, pathValue) {
+      try {
+        const site = new URL(siteUrl);
+
+        if (typeof pathValue === "string" && pathValue) {
+          return new URL(pathValue, site.origin).toString();
+        }
+
+        const segments = Array.isArray(pathValue) ? pathValue.filter(Boolean) : [];
+        if (!segments.length) {
+          return site.toString();
+        }
+
+        const encodedSegments = segments.map((segment) => encodeURIComponent(segment));
+        const trimmedSitePath = site.pathname.replace(/\/+$/, "");
+        return new URL(`${trimmedSitePath}/${encodedSegments.join("/")}`, site.origin).toString();
+      } catch (_) {
+        return "";
+      }
     }
 
     function safeUrlPath(value) {
@@ -913,11 +1153,12 @@
     function buildTree(rows) {
       let sequence = 0;
       const rowToNodeId = new Map();
-      const createNode = (type, name, pathKey) => ({
+      const createNode = (type, name, pathKey, href = "") => ({
         id: `${type}:${pathKey}:${sequence++}`,
         type,
         name,
         pathKey,
+        href,
         children: [],
         childMap: new Map(),
         rows: [],
@@ -928,21 +1169,39 @@
 
       rows.forEach((row) => {
         let cursor = root;
+        const relativeSegments = row._relativeSegments || [];
+        const librarySegment = relativeSegments[0] || row.LibraryTitle || "";
+        const folderSegments = relativeSegments.slice(1, Math.max(relativeSegments.length - 1, 1));
         const chain = [
-          { type: "site", name: row.SiteTitle || "Unknown Site" },
-          { type: "library", name: row.LibraryTitle || "Unknown Library" },
-          ...row._folderSegments.map((segment) => ({ type: "folder", name: segment })),
-          { type: row._safeItemType.toLowerCase(), name: row.ItemName || `Item ${row.ItemId || ""}`.trim() }
+          { type: "site", name: row.SiteTitle || "Unknown Site", href: row.SiteUrl || "" },
+          {
+            type: "library",
+            name: row.LibraryTitle || "Unknown Library",
+            href: buildSharePointItemUrl(row.SiteUrl, [librarySegment])
+          },
+          ...folderSegments.map((segment, index) => ({
+            type: "folder",
+            name: segment,
+            href: buildSharePointItemUrl(row.SiteUrl, [librarySegment, ...folderSegments.slice(0, index + 1)])
+          })),
+          {
+            type: row._safeItemType.toLowerCase(),
+            name: row.ItemName || `Item ${row.ItemId || ""}`.trim(),
+            href: buildSharePointItemUrl(row.SiteUrl, row.ItemPath)
+          }
         ];
 
         chain.forEach((part) => {
           const childKey = `${part.type}|${part.name}`;
           if (!cursor.childMap.has(childKey)) {
-            const node = createNode(part.type, part.name, `${cursor.pathKey}/${childKey}`);
+            const node = createNode(part.type, part.name, `${cursor.pathKey}/${childKey}`, part.href || "");
             cursor.childMap.set(childKey, node);
             cursor.children.push(node);
           }
           cursor = cursor.childMap.get(childKey);
+          if (!cursor.href && part.href) {
+            cursor.href = part.href;
+          }
           cursor.rows.push(row);
         });
         rowToNodeId.set(row._id, cursor.id);
@@ -1044,7 +1303,7 @@
         return;
       }
 
-      const sample = node.rows[0];
+      const primaryRow = node.rows[0];
       const blocks = [
         ["Node", node.name],
         ["Type", node.type],
@@ -1053,13 +1312,13 @@
         ["Unique Items", String(node.totals.uniqueItems.size)],
         ["Expired", String(node.totals.expired)],
         ["No Expiration", String(node.totals.noExpiration)],
-        ["Sample Site", sample?.SiteTitle || "-"],
-        ["Sample Library", sample?.LibraryTitle || "-"],
-        ["Sample Item", sample?.ItemName || "-"],
-        ["Sample Path", sample?.ItemPath || "-"],
-        ["Granted To", sample?._recipients.join(", ") || "-"],
-        ["LinkId", sample?.LinkId || "-"],
-        ["Expiration", sample?.Expiration || "-"]
+        ["Site", primaryRow?.SiteTitle || "-"],
+        ["Library", primaryRow?.LibraryTitle || "-"],
+        ["Item", primaryRow?.ItemName || "-"],
+        ["Path", primaryRow?.ItemPath || "-"],
+        ["Granted To", primaryRow?._recipients.join(", ") || "-"],
+        ["LinkId", primaryRow?.LinkId || "-"],
+        ["Expiration", primaryRow?.Expiration || "-"]
       ];
 
       elements.detailPane.innerHTML = `
@@ -1236,7 +1495,7 @@
           <span class="node-icon ${escapeHtml(iconClass)}"><i class="${escapeHtml(icon)}" aria-hidden="true"></i></span>
           <span class="node-type">${escapeHtml(formatNodeType(node.type))}</span>
           <span class="node-name">${escapeHtml(node.name)}</span>
-          <span class="node-count">${node.totals.rows} rows</span>
+          ${node.href ? `<a class="node-link" href="${escapeHtml(node.href)}" target="_blank" rel="noreferrer noopener" aria-label="Open ${escapeHtml(node.name)}"><i class="fa-solid fa-arrow-up-right-from-square" aria-hidden="true"></i></a>` : ""}
           ${badges}
         </div>
         ${hasChildren ? `<div class="tree-group hidden">${node.children.map((child) => renderNode(child)).join("")}</div>` : ""}
@@ -1399,12 +1658,19 @@
       loadCsvText(EMBEDDED_SAMPLE_CSV, "fictional sample");
     });
 
+    function setGuideOpen(isOpen) {
+      elements.guidePanel.classList.toggle("is-open", isOpen);
+      elements.guidePanel.setAttribute("aria-hidden", String(!isOpen));
+      elements.toggleGuide.setAttribute("aria-expanded", String(isOpen));
+    }
+
     elements.toggleGuide.addEventListener("click", () => {
-      elements.guidePanel.classList.toggle("hidden");
+      const isOpen = elements.guidePanel.classList.contains("is-open");
+      setGuideOpen(!isOpen);
     });
 
     elements.closeGuide.addEventListener("click", () => {
-      elements.guidePanel.classList.add("hidden");
+      setGuideOpen(false);
     });
 
     elements.treeSearch.addEventListener("input", () => {

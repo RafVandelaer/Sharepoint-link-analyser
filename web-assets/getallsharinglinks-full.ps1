@@ -1,7 +1,9 @@
 [CmdletBinding()]
 param(
     [string]$TenantName,
+    [string]$ClientId,
     [string]$OutputDirectory = ".",
+    [string]$SiteUrl,
     [switch]$IncludeOneDrive,
     [switch]$RecoveryOnly,
     [int]$MaxSites = 0,
@@ -69,6 +71,7 @@ $script:CurrentConnectedUrl = $null
 function Connect-DelegatedPnP {
     param(
         [Parameter(Mandatory)][string]$Url,
+        [Parameter(Mandatory)][string]$ClientId,
         [switch]$ForceReconnect
     )
 
@@ -76,7 +79,13 @@ function Connect-DelegatedPnP {
         return
     }
 
-    Connect-PnPOnline -Url $Url -Interactive -ErrorAction Stop
+    Connect-PnPOnline `
+        -Url $Url `
+        -Interactive `
+        -ClientId $ClientId `
+        -PersistLogin `
+        -ErrorAction Stop
+
     $script:CurrentConnectedUrl = $Url
 }
 
@@ -229,7 +238,7 @@ function New-InitialState {
 
     [PSCustomObject]@{
         RunId                = $RunId
-        Mode                 = "DelegatedTemporarySCA"
+        Mode                 = "DelegatedTemporarySCAFromAdminContext"
         TenantName           = $TenantName
         StartedAt            = (Get-Date).ToString("o")
         CompletedAt          = $null
@@ -250,6 +259,7 @@ function New-InitialState {
         CurrentSiteIndex     = 0
         CurrentLibraryTitle  = $null
         CurrentItemName      = $null
+        TargetSiteUrl        = $null
         Sites                = @()
     }
 }
@@ -415,12 +425,25 @@ function Get-CurrentUserInfoSafe {
     }
 }
 
+function Get-CurrentUserInfoFromAdmin {
+    param(
+        [Parameter(Mandatory)][string]$AdminUrl,
+        [Parameter(Mandatory)][string]$ClientId
+    )
+
+    Connect-DelegatedPnP -Url $AdminUrl -ClientId $ClientId -ForceReconnect
+    return Get-CurrentUserInfoSafe
+}
+
 function Test-IsCurrentUserSiteCollectionAdmin {
     param(
-        [Parameter(Mandatory)][string]$CurrentUserLogin
+        [Parameter(Mandatory)][string]$SiteUrl,
+        [Parameter(Mandatory)][string]$CurrentUserLogin,
+        [Parameter(Mandatory)][string]$ClientId
     )
 
     try {
+        Connect-DelegatedPnP -Url $SiteUrl -ClientId $ClientId -ForceReconnect
         $admins = @(Get-PnPSiteCollectionAdmin)
 
         $matches = @($admins | Where-Object {
@@ -433,30 +456,43 @@ function Test-IsCurrentUserSiteCollectionAdmin {
         }
     }
     catch {
-        throw "Could not retrieve Site Collection Administrators. Error: $($_.Exception.Message)"
+        return [PSCustomObject]@{
+            IsAdmin = $false
+            Matches = @()
+        }
     }
 }
 
-function Add-TemporarySiteCollectionAdmin {
+function Add-TemporarySiteCollectionAdminFromAdmin {
     param(
-        [Parameter(Mandatory)][string]$CurrentUserLogin
+        [Parameter(Mandatory)][string]$AdminUrl,
+        [Parameter(Mandatory)][string]$SiteUrl,
+        [Parameter(Mandatory)][string]$CurrentUserLogin,
+        [Parameter(Mandatory)][string]$ClientId
     )
 
-    Add-PnPSiteCollectionAdmin -Owners $CurrentUserLogin -ErrorAction Stop
+    Connect-DelegatedPnP -Url $AdminUrl -ClientId $ClientId -ForceReconnect
+    Set-PnPTenantSite -Identity $SiteUrl -Owners $CurrentUserLogin -ErrorAction Stop
 }
 
-function Remove-TemporarySiteCollectionAdminSafe {
+function Remove-TemporarySiteCollectionAdminFromAdmin {
     param(
-        [Parameter(Mandatory)][string]$CurrentUserLogin
+        [Parameter(Mandatory)][string]$AdminUrl,
+        [Parameter(Mandatory)][string]$SiteUrl,
+        [Parameter(Mandatory)][string]$CurrentUserLogin,
+        [Parameter(Mandatory)][string]$ClientId
     )
 
-    Remove-PnPSiteCollectionAdmin -Owners $CurrentUserLogin -ErrorAction Stop
+    Connect-DelegatedPnP -Url $AdminUrl -ClientId $ClientId -ForceReconnect
+    Remove-PnPSiteCollectionAdmin -Site $SiteUrl -Owners $CurrentUserLogin -ErrorAction Stop
 }
 
 function Ensure-UserIsTemporarySiteCollectionAdmin {
     param(
+        [Parameter(Mandatory)][string]$AdminUrl,
         [Parameter(Mandatory)][string]$CurrentUserLogin,
         [Parameter(Mandatory)][string]$SiteUrl,
+        [Parameter(Mandatory)][string]$ClientId,
         [Parameter(Mandatory)]$SiteState,
         [Parameter(Mandatory)]$State,
         [Parameter(Mandatory)][string]$StatePath,
@@ -464,7 +500,7 @@ function Ensure-UserIsTemporarySiteCollectionAdmin {
         [Parameter(Mandatory)][string]$CleanupQueuePath
     )
 
-    $adminCheck = Test-IsCurrentUserSiteCollectionAdmin -CurrentUserLogin $CurrentUserLogin
+    $adminCheck = Test-IsCurrentUserSiteCollectionAdmin -SiteUrl $SiteUrl -CurrentUserLogin $CurrentUserLogin -ClientId $ClientId
     $SiteState.WasAlreadySiteCollectionAdmin = $adminCheck.IsAdmin
 
     if ($adminCheck.IsAdmin) {
@@ -473,10 +509,10 @@ function Ensure-UserIsTemporarySiteCollectionAdmin {
         return $false
     }
 
-    Add-TemporarySiteCollectionAdmin -CurrentUserLogin $CurrentUserLogin
-    Start-Sleep -Milliseconds 250
+    Add-TemporarySiteCollectionAdminFromAdmin -AdminUrl $AdminUrl -SiteUrl $SiteUrl -CurrentUserLogin $CurrentUserLogin -ClientId $ClientId
+    Start-Sleep -Milliseconds 500
 
-    $verify = Test-IsCurrentUserSiteCollectionAdmin -CurrentUserLogin $CurrentUserLogin
+    $verify = Test-IsCurrentUserSiteCollectionAdmin -SiteUrl $SiteUrl -CurrentUserLogin $CurrentUserLogin -ClientId $ClientId
     if (-not $verify.IsAdmin) {
         throw "Verification failed: the user was not added as Site Collection Administrator on $SiteUrl."
     }
@@ -496,14 +532,16 @@ function Ensure-UserIsTemporarySiteCollectionAdmin {
         -CleanupCompleted $false `
         -RunId $State.RunId
 
-    Write-EventLog -Path $EventLogPath -Message ("Temporary Site Collection Administrator access granted on {0}" -f $SiteUrl) -Level "INFO"
+    Write-EventLog -Path $EventLogPath -Message ("Temporary Site Collection Administrator access granted on {0} from admin context" -f $SiteUrl) -Level "INFO"
     return $true
 }
 
 function Cleanup-TemporarySiteCollectionAdmin {
     param(
+        [Parameter(Mandatory)][string]$AdminUrl,
         [Parameter(Mandatory)][string]$CurrentUserLogin,
         [Parameter(Mandatory)][string]$SiteUrl,
+        [Parameter(Mandatory)][string]$ClientId,
         [Parameter(Mandatory)]$SiteState,
         [Parameter(Mandatory)]$State,
         [Parameter(Mandatory)][string]$StatePath,
@@ -515,10 +553,10 @@ function Cleanup-TemporarySiteCollectionAdmin {
         return
     }
 
-    Remove-TemporarySiteCollectionAdminSafe -CurrentUserLogin $CurrentUserLogin
-    Start-Sleep -Milliseconds 250
+    Remove-TemporarySiteCollectionAdminFromAdmin -AdminUrl $AdminUrl -SiteUrl $SiteUrl -CurrentUserLogin $CurrentUserLogin -ClientId $ClientId
+    Start-Sleep -Milliseconds 500
 
-    $verify = Test-IsCurrentUserSiteCollectionAdmin -CurrentUserLogin $CurrentUserLogin
+    $verify = Test-IsCurrentUserSiteCollectionAdmin -SiteUrl $SiteUrl -CurrentUserLogin $CurrentUserLogin -ClientId $ClientId
     if ($verify.IsAdmin) {
         throw "Verification failed: the user still appears to be Site Collection Administrator on $SiteUrl."
     }
@@ -536,7 +574,30 @@ function Cleanup-TemporarySiteCollectionAdmin {
         -CleanupCompleted $true `
         -RunId $State.RunId
 
-    Write-EventLog -Path $EventLogPath -Message ("Temporary Site Collection Administrator access removed on {0}" -f $SiteUrl) -Level "INFO"
+    Write-EventLog -Path $EventLogPath -Message ("Temporary Site Collection Administrator access removed on {0} from admin context" -f $SiteUrl) -Level "INFO"
+}
+
+function Connect-ToSiteWithRetry {
+    param(
+        [Parameter(Mandatory)][string]$SiteUrl,
+        [Parameter(Mandatory)][string]$ClientId,
+        [int]$MaxAttempts = 3
+    )
+
+    for ($attempt = 1; $attempt -le $MaxAttempts; $attempt++) {
+        try {
+            Connect-DelegatedPnP -Url $SiteUrl -ClientId $ClientId -ForceReconnect
+            $null = Get-PnPWeb -ErrorAction Stop
+            return
+        }
+        catch {
+            if ($attempt -ge $MaxAttempts) {
+                throw
+            }
+
+            Start-Sleep -Seconds (2 * $attempt)
+        }
+    }
 }
 
 function Get-FolderSharingLinksSafe {
@@ -645,7 +706,8 @@ function Recover-AbortedRun {
         [Parameter(Mandatory)][string]$StatePath,
         [Parameter(Mandatory)][string]$EventLogPath,
         [Parameter(Mandatory)][string]$TenantName,
-        [Parameter(Mandatory)][string]$CleanupQueuePath
+        [Parameter(Mandatory)][string]$CleanupQueuePath,
+        [Parameter(Mandatory)][string]$ClientId
     )
 
     if ($State.RunCompleted -eq $true) {
@@ -657,9 +719,7 @@ function Recover-AbortedRun {
     Write-EventLog -Path $EventLogPath -Message ("Recovery started for previous run {0}" -f $State.RunId) -Level "WARN"
 
     $adminUrl = "https://$TenantName-admin.sharepoint.com"
-    Connect-DelegatedPnP -Url $adminUrl -ForceReconnect
-
-    $userInfo = Get-CurrentUserInfoSafe
+    $userInfo = Get-CurrentUserInfoFromAdmin -AdminUrl $adminUrl -ClientId $ClientId
     if ($null -eq $userInfo -or [string]::IsNullOrWhiteSpace($userInfo.LoginName)) {
         throw "Could not determine the current user during recovery."
     }
@@ -668,11 +728,11 @@ function Recover-AbortedRun {
         $_.TemporaryAdminAddedByScript -eq $true -and $_.CleanupCompleted -eq $false
     })) {
         try {
-            Connect-DelegatedPnP -Url $siteState.SiteUrl -ForceReconnect
-
             Cleanup-TemporarySiteCollectionAdmin `
+                -AdminUrl $adminUrl `
                 -CurrentUserLogin $userInfo.LoginName `
                 -SiteUrl $siteState.SiteUrl `
+                -ClientId $ClientId `
                 -SiteState $siteState `
                 -State $State `
                 -StatePath $StatePath `
@@ -715,6 +775,7 @@ function Write-RunSummary {
     $summary += "RunId: $($State.RunId)"
     $summary += "Mode: $($State.Mode)"
     $summary += "Tenant: $($State.TenantName)"
+    $summary += "TargetSiteUrl: $($State.TargetSiteUrl)"
     $summary += "StartedAt: $($State.StartedAt)"
     $summary += "CompletedAt: $($State.CompletedAt)"
     $summary += "RunCompleted: $($State.RunCompleted)"
@@ -733,7 +794,12 @@ function Write-RunSummary {
 Import-PnPModule
 
 $TenantName = Get-InputValue -Prompt "Tenant short name (e.g. contoso or sebastianmortelmans)" -Value $TenantName
+$ClientId = Get-InputValue -Prompt "Entra App ClientId" -Value $ClientId
 $OutputDirectory = Ensure-Directory -Path $OutputDirectory
+
+if ($SiteUrl -and $SiteUrl -notmatch "^https://") {
+    throw "SiteUrl must be a full SharePoint URL."
+}
 
 $preRunId = Get-Timestamp
 $tenantPaths = New-TenantPaths -BaseDirectory $OutputDirectory -TenantName $TenantName -RunId $preRunId
@@ -747,7 +813,8 @@ if ($null -ne $existingState -and $existingState.RunCompleted -ne $true) {
         -StatePath $tenantPaths.StatePath `
         -EventLogPath $tenantPaths.EventLogPath `
         -TenantName $TenantName `
-        -CleanupQueuePath $tenantPaths.CleanupQueue
+        -CleanupQueuePath $tenantPaths.CleanupQueue `
+        -ClientId $ClientId
 }
 
 if ($RecoveryOnly) {
@@ -767,6 +834,8 @@ $state = New-InitialState `
     -CsvPath $paths.CsvPath `
     -EventLogPath $paths.EventLogPath
 
+$state.TargetSiteUrl = $SiteUrl
+
 Save-State -State $state -Path $paths.StatePath
 Initialize-CsvFile -CsvPath $paths.CsvPath
 Write-EventLog -Path $paths.EventLogPath -Message ("New run started: {0}" -f $runId) -Level "INFO"
@@ -776,9 +845,10 @@ try {
 
     Write-Host ""
     Write-Host "Connecting to admin site..." -ForegroundColor Cyan
-    Connect-DelegatedPnP -Url $adminUrl -ForceReconnect
+    Connect-DelegatedPnP -Url $adminUrl -ClientId $ClientId -ForceReconnect
+    Write-EventLog -Path $paths.EventLogPath -Message "Using persisted delegated login cache for token refresh when available." -Level "INFO"
 
-    $userInfo = Get-CurrentUserInfoSafe
+    $userInfo = Get-CurrentUserInfoFromAdmin -AdminUrl $adminUrl -ClientId $ClientId
     if ($null -eq $userInfo -or [string]::IsNullOrWhiteSpace($userInfo.LoginName)) {
         throw "Could not determine the current user."
     }
@@ -789,20 +859,32 @@ try {
 
     Write-EventLog -Path $paths.EventLogPath -Message ("Signed-in user: {0}" -f $userInfo.LoginName) -Level "INFO"
 
-    Write-Host "Retrieving site collections..." -ForegroundColor Cyan
-    $sites = @(
-        Get-PnPTenantSite | Where-Object {
-            if ($IncludeOneDrive) {
-                $true
-            }
-            else {
-                $_.Url -notlike "*/personal/*"
-            }
-        } | Sort-Object Url
-    )
+    if ($SiteUrl) {
+        Write-Host ("Scanning only the specified site: {0}" -f $SiteUrl) -ForegroundColor Yellow
+        Write-EventLog -Path $paths.EventLogPath -Message ("Single-site mode enabled for {0}" -f $SiteUrl) -Level "INFO"
 
-    if ($MaxSites -gt 0) {
-        $sites = @($sites | Select-Object -First $MaxSites)
+        $sites = @(
+            [PSCustomObject]@{
+                Url = $SiteUrl
+            }
+        )
+    }
+    else {
+        Write-Host "Retrieving site collections..." -ForegroundColor Cyan
+        $sites = @(
+            Get-PnPTenantSite | Where-Object {
+                if ($IncludeOneDrive) {
+                    $true
+                }
+                else {
+                    $_.Url -notlike "*/personal/*"
+                }
+            } | Sort-Object Url
+        )
+
+        if ($MaxSites -gt 0) {
+            $sites = @($sites | Select-Object -First $MaxSites)
+        }
     }
 
     if ($sites.Count -eq 0) {
@@ -830,23 +912,13 @@ try {
         $siteState = Get-OrCreateSiteState -State $state -SiteUrl $site.Url
 
         try {
-            Connect-DelegatedPnP -Url $site.Url
-
-            $web = Get-PnPWeb -Includes Title, Url
-            $siteTitle = $web.Title
-            $siteUrl = $web.Url.TrimEnd('/')
-
-            $siteState.SiteTitle = $siteTitle
-            Update-SiteStateTimestamp -SiteState $siteState
-            Save-State -State $state -Path $paths.StatePath
-
-            Write-Host ""
-            Write-Host ("[{0}/{1}] Site: {2} ({3})" -f ($siteIndex + 1), $sites.Count, $siteTitle, $siteUrl) -ForegroundColor Yellow
-            Write-EventLog -Path $paths.EventLogPath -Message ("Site scan started: {0}" -f $siteUrl) -Level "INFO"
+            $siteUrlResolved = $site.Url
 
             $adminAdded = Ensure-UserIsTemporarySiteCollectionAdmin `
+                -AdminUrl $adminUrl `
                 -CurrentUserLogin $userInfo.LoginName `
-                -SiteUrl $siteUrl `
+                -SiteUrl $siteUrlResolved `
+                -ClientId $ClientId `
                 -SiteState $siteState `
                 -State $state `
                 -StatePath $paths.StatePath `
@@ -855,8 +927,21 @@ try {
 
             if ($adminAdded) {
                 Write-Host "  Temporary Site Collection Administrator access granted." -ForegroundColor Cyan
-                Connect-DelegatedPnP -Url $site.Url -ForceReconnect
             }
+
+            Connect-ToSiteWithRetry -SiteUrl $site.Url -ClientId $ClientId
+
+            $web = Get-PnPWeb -Includes Title, Url
+            $siteTitle = $web.Title
+            $siteUrlResolved = $web.Url.TrimEnd('/')
+
+            $siteState.SiteTitle = $siteTitle
+            Update-SiteStateTimestamp -SiteState $siteState
+            Save-State -State $state -Path $paths.StatePath
+
+            Write-Host ""
+            Write-Host ("[{0}/{1}] Site: {2} ({3})" -f ($siteIndex + 1), $sites.Count, $siteTitle, $siteUrlResolved) -ForegroundColor Yellow
+            Write-EventLog -Path $paths.EventLogPath -Message ("Site scan started: {0}" -f $siteUrlResolved) -Level "INFO"
 
             $libraries = @(Get-RelevantLibraries)
             if ($MaxLibrariesPerSite -gt 0) {
@@ -900,8 +985,8 @@ try {
                     $siteState.LastWarning = $_.Exception.Message
                     Save-State -State $state -Path $paths.StatePath
 
-                    Write-Warning ("Could not retrieve items from '{0}' on '{1}'. Error: {2}" -f $library.Title, $siteUrl, $_.Exception.Message)
-                    Write-EventLog -Path $paths.EventLogPath -Message ("Could not retrieve items from {0} on {1}. Error: {2}" -f $library.Title, $siteUrl, $_.Exception.Message) -Level "WARN"
+                    Write-Warning ("Could not retrieve items from '{0}' on '{1}'. Error: {2}" -f $library.Title, $siteUrlResolved, $_.Exception.Message)
+                    Write-EventLog -Path $paths.EventLogPath -Message ("Could not retrieve items from {0} on {1}. Error: {2}" -f $library.Title, $siteUrlResolved, $_.Exception.Message) -Level "WARN"
                     continue
                 }
 
@@ -960,7 +1045,7 @@ try {
                                 $row = New-LinkRow `
                                     -RunId $state.RunId `
                                     -SiteTitle $siteTitle `
-                                    -SiteUrl $siteUrl `
+                                    -SiteUrl $siteUrlResolved `
                                     -LibraryTitle $library.Title `
                                     -Item $item `
                                     -Link $link `
@@ -1005,7 +1090,7 @@ try {
             Save-State -State $state -Path $paths.StatePath
 
             Write-Host ("  Site completed. Site links: {0}. Total links: {1}. Files scanned: {2}. Folders scanned: {3}. Site warnings: {4}" -f $siteState.LinksFound, $state.LinksFound, $siteState.FilesScanned, $siteState.FoldersScanned, $siteState.WarningCount) -ForegroundColor Green
-            Write-EventLog -Path $paths.EventLogPath -Message ("Site scan completed: {0}. Site links: {1}. Files scanned: {2}. Folders scanned: {3}. Warnings: {4}" -f $siteUrl, $siteState.LinksFound, $siteState.FilesScanned, $siteState.FoldersScanned, $siteState.WarningCount) -Level "INFO"
+            Write-EventLog -Path $paths.EventLogPath -Message ("Site scan completed: {0}. Site links: {1}. Files scanned: {2}. Folders scanned: {3}. Warnings: {4}" -f $siteUrlResolved, $siteState.LinksFound, $siteState.FilesScanned, $siteState.FoldersScanned, $siteState.WarningCount) -Level "INFO"
         }
         catch {
             $siteState.LastError = $_.Exception.Message
@@ -1017,10 +1102,11 @@ try {
         }
         finally {
             try {
-                Connect-DelegatedPnP -Url $site.Url
                 Cleanup-TemporarySiteCollectionAdmin `
+                    -AdminUrl $adminUrl `
                     -CurrentUserLogin $userInfo.LoginName `
                     -SiteUrl $site.Url `
+                    -ClientId $ClientId `
                     -SiteState $siteState `
                     -State $state `
                     -StatePath $paths.StatePath `
