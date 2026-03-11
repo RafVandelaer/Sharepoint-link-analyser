@@ -1,0 +1,1423 @@
+<!DOCTYPE html>
+<html lang="nl">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>SharePoint CSV Analyzer</title>
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.2/css/all.min.css" referrerpolicy="no-referrer">
+  <style>
+    :root {
+      --bg: #f3efe7;
+      --surface: #fffdf9;
+      --surface-strong: #fff8ee;
+      --ink: #1f2a2e;
+      --muted: #647074;
+      --line: #d8d1c6;
+      --brand: #0f766e;
+      --brand-strong: #115e59;
+      --accent: #d97706;
+      --danger: #b91c1c;
+      --ok: #15803d;
+      --shadow: 0 18px 60px rgba(31, 42, 46, 0.12);
+      --radius: 18px;
+      --mono: "SFMono-Regular", Consolas, "Liberation Mono", Menlo, monospace;
+      --sans: "Avenir Next", "Segoe UI", sans-serif;
+    }
+
+    * {
+      box-sizing: border-box;
+    }
+
+    body {
+      margin: 0;
+      font-family: var(--sans);
+      color: var(--ink);
+      background:
+        radial-gradient(circle at top left, rgba(15, 118, 110, 0.14), transparent 26%),
+        radial-gradient(circle at top right, rgba(217, 119, 6, 0.14), transparent 22%),
+        linear-gradient(180deg, #f7f3ec 0%, var(--bg) 100%);
+      background-repeat: no-repeat, no-repeat, no-repeat;
+      background-size: 100% 720px, 100% 720px, 100% 100%;
+      min-height: 100vh;
+    }
+
+    a {
+      color: inherit;
+    }
+
+    .shell {
+      max-width: 1440px;
+      margin: 0 auto;
+      padding: 32px 20px 64px;
+    }
+
+    .hero {
+      display: grid;
+      grid-template-columns: 1.2fr 0.8fr;
+      gap: 24px;
+      margin-bottom: 24px;
+    }
+
+    .panel {
+      background: rgba(255, 253, 249, 0.86);
+      border: 1px solid rgba(216, 209, 198, 0.9);
+      border-radius: var(--radius);
+      box-shadow: var(--shadow);
+      backdrop-filter: blur(10px);
+    }
+
+    .hero-copy,
+    .upload-card,
+    .summary-card,
+    .tree-card,
+    .detail-card,
+    .table-card,
+    .chart-card {
+      padding: 24px;
+    }
+
+    h1, h2, h3 {
+      margin: 0;
+    }
+
+    h1 {
+      font-size: clamp(2rem, 4vw, 4rem);
+      line-height: 0.96;
+      margin-top: 18px;
+      max-width: 12ch;
+    }
+
+    .hero-copy p {
+      max-width: 60ch;
+      font-size: 1rem;
+      line-height: 1.6;
+      color: var(--muted);
+      margin: 18px 0 0;
+    }
+
+    .upload-card {
+      display: flex;
+      flex-direction: column;
+      justify-content: space-between;
+      min-height: 100%;
+      background:
+        linear-gradient(145deg, rgba(15, 118, 110, 0.08), rgba(255, 255, 255, 0.82)),
+        var(--surface);
+    }
+
+    .upload-zone {
+      border: 2px dashed rgba(15, 118, 110, 0.35);
+      border-radius: 16px;
+      padding: 28px;
+      text-align: center;
+      background: rgba(255, 255, 255, 0.72);
+      transition: 180ms ease;
+    }
+
+    .upload-zone.dragover {
+      border-color: var(--brand);
+      transform: translateY(-2px);
+      box-shadow: 0 14px 34px rgba(15, 118, 110, 0.16);
+    }
+
+    .upload-zone input {
+      display: none;
+    }
+
+    .button-row,
+    .toolbar,
+    .filters {
+      display: flex;
+      gap: 12px;
+      flex-wrap: wrap;
+      align-items: center;
+    }
+
+    button,
+    .button-like {
+      appearance: none;
+      border: 0;
+      border-radius: 12px;
+      padding: 12px 16px;
+      font: inherit;
+      cursor: pointer;
+      transition: 160ms ease;
+    }
+
+    .primary {
+      background: var(--brand);
+      color: white;
+      font-weight: 700;
+    }
+
+    .secondary {
+      background: rgba(31, 42, 46, 0.06);
+      color: var(--ink);
+      font-weight: 600;
+    }
+
+    button:hover,
+    .button-like:hover {
+      transform: translateY(-1px);
+    }
+
+    .meta {
+      margin-top: 16px;
+      font-size: 14px;
+      color: var(--muted);
+    }
+
+    .status {
+      margin-top: 14px;
+      min-height: 22px;
+      color: var(--muted);
+      font-size: 14px;
+    }
+
+    .grid-5,
+    .grid-3,
+    .workspace {
+      display: grid;
+      gap: 18px;
+    }
+
+    .grid-5 {
+      grid-template-columns: repeat(5, minmax(0, 1fr));
+      margin-bottom: 18px;
+    }
+
+    .grid-3 {
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+      margin-bottom: 18px;
+    }
+
+    .summary-card {
+      position: relative;
+      overflow: hidden;
+      min-height: 128px;
+    }
+
+    .summary-card::after {
+      content: "";
+      position: absolute;
+      inset: auto -22px -22px auto;
+      width: 86px;
+      height: 86px;
+      border-radius: 50%;
+      background: rgba(15, 118, 110, 0.08);
+    }
+
+    .summary-label {
+      color: var(--muted);
+      font-size: 13px;
+      text-transform: uppercase;
+      letter-spacing: 0.06em;
+      font-weight: 700;
+    }
+
+    .summary-value {
+      margin-top: 10px;
+      font-size: clamp(1.8rem, 2vw, 2.5rem);
+      font-weight: 800;
+    }
+
+    .summary-note {
+      margin-top: 10px;
+      color: var(--muted);
+      font-size: 14px;
+    }
+
+    .chart-card h3,
+    .tree-card h3,
+    .detail-card h3,
+    .table-card h3 {
+      margin-bottom: 16px;
+      font-size: 1.05rem;
+    }
+
+    .chart-bars {
+      display: grid;
+      gap: 12px;
+    }
+
+    .bar-row {
+      display: grid;
+      gap: 8px;
+    }
+
+    .bar-label {
+      display: flex;
+      justify-content: space-between;
+      gap: 16px;
+      font-size: 14px;
+      color: var(--muted);
+    }
+
+    .bar-track {
+      width: 100%;
+      height: 12px;
+      background: rgba(31, 42, 46, 0.08);
+      border-radius: 999px;
+      overflow: hidden;
+    }
+
+    .bar-fill {
+      height: 100%;
+      border-radius: inherit;
+      background: linear-gradient(90deg, var(--brand), var(--accent));
+    }
+
+    .workspace {
+      grid-template-columns: minmax(0, 1fr);
+      align-items: start;
+    }
+
+    .toolbar {
+      margin-bottom: 16px;
+      justify-content: space-between;
+    }
+
+    .guide-card {
+      padding: 20px 24px;
+      margin-bottom: 18px;
+      background:
+        linear-gradient(135deg, rgba(217, 119, 6, 0.08), rgba(255, 255, 255, 0.84)),
+        var(--surface);
+    }
+
+    .guide-card h3 {
+      margin-bottom: 10px;
+    }
+
+    .guide-steps {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 16px;
+      margin-top: 18px;
+    }
+
+    .guide-step {
+      padding: 16px;
+      border-radius: 14px;
+      background: rgba(255, 255, 255, 0.68);
+      border: 1px solid rgba(216, 209, 198, 0.8);
+    }
+
+    .guide-step strong {
+      display: block;
+      margin-bottom: 8px;
+      font-size: 13px;
+      text-transform: uppercase;
+      letter-spacing: 0.06em;
+      color: var(--brand-strong);
+    }
+
+    .filters input,
+    .filters select,
+    .search {
+      border: 1px solid var(--line);
+      border-radius: 12px;
+      padding: 11px 13px;
+      font: inherit;
+      background: rgba(255, 255, 255, 0.86);
+      min-width: 0;
+    }
+
+    .search {
+      width: min(100%, 320px);
+    }
+
+    .tree-wrap {
+      max-height: 760px;
+      overflow: auto;
+      padding-right: 4px;
+    }
+
+    .tree-group {
+      margin-left: 18px;
+      border-left: 1px dashed rgba(100, 112, 116, 0.35);
+      padding-left: 12px;
+    }
+
+    .tree-node {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      padding: 8px 10px;
+      margin: 2px 0;
+      border-radius: 12px;
+      cursor: pointer;
+    }
+
+    .tree-node:hover,
+    .tree-node.active {
+      background: rgba(15, 118, 110, 0.08);
+    }
+
+    .toggle {
+      width: 18px;
+      text-align: center;
+      color: var(--muted);
+      font-size: 12px;
+      user-select: none;
+    }
+
+    .node-icon {
+      width: 28px;
+      height: 28px;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      border-radius: 10px;
+      font-size: 15px;
+      line-height: 1;
+      user-select: none;
+      background: rgba(31, 42, 46, 0.06);
+    }
+
+    .node-icon i,
+    .toggle i {
+      pointer-events: none;
+    }
+
+    .node-icon.folder {
+      background: rgba(217, 119, 6, 0.13);
+      color: #9a5a05;
+    }
+
+    .node-icon.file {
+      background: rgba(15, 118, 110, 0.13);
+      color: var(--brand-strong);
+    }
+
+    .node-icon.site {
+      background: rgba(29, 78, 216, 0.12);
+      color: #1d4ed8;
+    }
+
+    .node-icon.library {
+      background: rgba(124, 58, 237, 0.12);
+      color: #6d28d9;
+    }
+
+    .node-type {
+      min-width: 66px;
+      font-size: 11px;
+      font-weight: 700;
+      letter-spacing: 0.05em;
+      text-transform: uppercase;
+      color: var(--brand-strong);
+    }
+
+    .node-name {
+      flex: 1;
+      min-width: 0;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+
+    .node-count {
+      font-size: 13px;
+      color: var(--muted);
+    }
+
+    .badge {
+      border-radius: 999px;
+      padding: 3px 8px;
+      font-size: 11px;
+      font-weight: 700;
+      white-space: nowrap;
+    }
+
+    .badge.warn {
+      background: rgba(217, 119, 6, 0.14);
+      color: #9a5a05;
+    }
+
+    .badge.danger {
+      background: rgba(185, 28, 28, 0.12);
+      color: var(--danger);
+    }
+
+    .badge.ok {
+      background: rgba(21, 128, 61, 0.12);
+      color: var(--ok);
+    }
+
+    .detail-grid {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 10px 16px;
+    }
+
+    .detail-item {
+      padding: 12px;
+      border-radius: 12px;
+      background: var(--surface-strong);
+      border: 1px solid rgba(216, 209, 198, 0.75);
+    }
+
+    .detail-item strong {
+      display: block;
+      font-size: 12px;
+      color: var(--muted);
+      margin-bottom: 6px;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+    }
+
+    code {
+      font-family: var(--mono);
+      font-size: 12px;
+      word-break: break-all;
+    }
+
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 14px;
+    }
+
+    th,
+    td {
+      text-align: left;
+      padding: 12px 10px;
+      border-bottom: 1px solid rgba(216, 209, 198, 0.9);
+      vertical-align: top;
+    }
+
+    tbody tr {
+      cursor: pointer;
+      transition: background 160ms ease;
+    }
+
+    tbody tr:hover {
+      background: rgba(15, 118, 110, 0.08);
+    }
+
+    tbody tr.active {
+      background: rgba(15, 118, 110, 0.12);
+    }
+
+    th {
+      font-size: 12px;
+      color: var(--muted);
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+    }
+
+    .table-wrap {
+      max-height: 480px;
+      overflow: auto;
+    }
+
+    .empty,
+    .hint {
+      color: var(--muted);
+      font-size: 14px;
+      line-height: 1.6;
+    }
+
+    .hidden {
+      display: none !important;
+    }
+
+    @media (max-width: 1180px) {
+      .hero,
+      .workspace,
+      .grid-5,
+      .grid-3 {
+        grid-template-columns: 1fr;
+      }
+    }
+
+    @media (max-width: 720px) {
+      .shell {
+        padding: 20px 14px 40px;
+      }
+
+      .guide-steps {
+        grid-template-columns: 1fr;
+      }
+
+      .detail-grid {
+        grid-template-columns: 1fr;
+      }
+
+      .tree-node {
+        align-items: flex-start;
+        flex-wrap: wrap;
+      }
+    }
+  </style>
+</head>
+<body>
+  <main class="shell">
+    <section class="hero">
+      <article class="panel hero-copy">
+        <h1>SharePoint CSV Analyzer</h1>
+        <p>
+          Upload a CSV export from the PowerShell script and analyze everything locally in the browser.
+          This first version shows core metrics, simple charts, a full tree view based on `ItemPath`,
+          and a detail panel for each node.
+        </p>
+        <div class="button-row" style="margin-top: 18px;">
+          <button class="secondary" id="toggle-guide" type="button">Quick Guide</button>
+          <button class="secondary" id="download-script" type="button">Download Script</button>
+        </div>
+      </article>
+
+      <aside class="panel upload-card">
+        <div>
+          <h2>Upload CSV</h2>
+          <p class="meta">Supports the export columns from `getallsharinglinks-full.ps1`.</p>
+          <div class="upload-zone" id="upload-zone">
+            <p><strong>Drop your CSV here</strong></p>
+            <p class="meta">or choose a file</p>
+            <div class="button-row">
+              <button class="primary" id="pick-file" type="button">Choose File</button>
+              <button class="secondary" id="load-sample" type="button">Load Sample CSV</button>
+            </div>
+            <input id="file-input" type="file" accept=".csv,text/csv">
+          </div>
+          <div class="status" id="status-text">No CSV loaded yet.</div>
+        </div>
+        <div class="meta">
+          All processing stays local. This page does not require a backend.
+        </div>
+      </aside>
+    </section>
+
+    <section class="panel guide-card hidden" id="guide-panel">
+      <div class="toolbar" style="margin-bottom: 0;">
+        <div>
+          <h3>Quick Guide</h3>
+          <div class="hint">First download the script, then run it, then upload the generated CSV here.</div>
+        </div>
+        <button class="secondary" id="close-guide" type="button">Close</button>
+      </div>
+      <div class="guide-steps">
+        <article class="guide-step">
+          <strong>1. Download the script</strong>
+          <p class="hint">
+            Download `getallsharinglinks-full.ps1` from this repo or copy the same file into your SharePoint admin working folder.
+            Keep the script next to an output folder so the generated CSV ends up in a predictable location.
+          </p>
+        </article>
+        <article class="guide-step">
+          <strong>2. Run the script</strong>
+          <p class="hint">
+            Open PowerShell 7, move to the folder containing the script, and run for example:
+          </p>
+          <code>pwsh ./getallsharinglinks-full.ps1 -TenantName yourtenant -OutputDirectory ./output</code>
+          <p class="hint">
+            `-TenantName yourtenant` is often the tenant prefix from `yourtenant.onmicrosoft.com`.
+            Sign in through the interactive prompt, let the scan finish, then upload the generated `SharingLinks-*.csv` in this page.
+          </p>
+        </article>
+      </div>
+    </section>
+
+    <section id="results" class="hidden">
+      <div class="grid-5" id="summary-grid"></div>
+
+      <div class="grid-3">
+        <section class="panel chart-card">
+          <h3>By Item Type</h3>
+          <div id="chart-item-type" class="chart-bars"></div>
+        </section>
+        <section class="panel chart-card">
+          <h3>Expiration Status</h3>
+          <div id="chart-expiration" class="chart-bars"></div>
+        </section>
+        <section class="panel chart-card">
+          <h3>Top Sites</h3>
+          <div id="chart-sites" class="chart-bars"></div>
+        </section>
+      </div>
+
+      <div class="workspace">
+        <section class="panel tree-card">
+          <div class="toolbar">
+            <h3>Tree View</h3>
+            <div class="filters">
+              <input id="tree-search" class="search" type="search" placeholder="Search by site, item, or path">
+              <select id="status-filter">
+                <option value="all">All expirations</option>
+                <option value="expired">Expired only</option>
+                <option value="no-expiration">No expiration only</option>
+                <option value="dated">Has expiration date</option>
+              </select>
+            </div>
+          </div>
+          <div class="tree-wrap" id="tree-root"></div>
+        </section>
+      </div>
+
+      <section class="panel detail-card" style="margin-top: 18px;">
+        <h3>Detail</h3>
+        <div id="detail-pane" class="empty">
+          Select a node in the tree to inspect its details.
+        </div>
+      </section>
+
+      <section class="panel table-card" style="margin-top: 18px;">
+        <div class="toolbar">
+          <h3>Raw Rows</h3>
+          <div class="hint" id="table-meta"></div>
+        </div>
+        <div class="table-wrap">
+          <table>
+            <thead>
+              <tr>
+                <th>Site</th>
+                <th>Library</th>
+                <th>Item</th>
+                <th>Type</th>
+                <th>Expiration</th>
+                <th>Granted To</th>
+                <th>LinkId</th>
+              </tr>
+            </thead>
+            <tbody id="table-body"></tbody>
+          </table>
+        </div>
+      </section>
+    </section>
+  </main>
+
+  <script>
+    const REQUIRED_COLUMNS = [
+      "RunId", "ExportedAt", "SiteTitle", "SiteUrl", "LibraryTitle", "ItemId",
+      "ItemName", "ItemPath", "ItemType", "LinkId", "Expiration", "GrantedTo"
+    ];
+    const EMBEDDED_SAMPLE_CSV = `"RunId","ExportedAt","SiteTitle","SiteUrl","LibraryTitle","ItemId","ItemName","ItemPath","ItemType","HasUniqueRoleAssignments","LinkId","LinkKind","LinkType","Scope","LinkUrl","Created","Expiration","PreventsDownload","BlocksDownload","HasPassword","CreatedBy","GrantedTo"
+"20260311-150000","2026-03-11 15:00:00","Northwind HR","https://northwinddemo.sharepoint.com/sites/hr","Shared Documents","101","Employee Handbook.pdf","/sites/hr/Shared Documents/Policies/Employee Handbook.pdf","File","True","sample-link-001","View","Organization","users","https://northwinddemo.sharepoint.com/:b:/s/hr/sample-link-001","2026-01-12 09:00:00","2026-07-01 00:00:00","False","False","False","alex@northwinddemo.com","linda@northwinddemo.com; sam@northwinddemo.com"
+"20260311-150000","2026-03-11 15:01:00","Northwind HR","https://northwinddemo.sharepoint.com/sites/hr","Shared Documents","102","Benefits Overview.xlsx","/sites/hr/Shared Documents/Compensation/Benefits Overview.xlsx","File","False","sample-link-002","Edit","SpecificPeople","users","https://northwinddemo.sharepoint.com/:x:/s/hr/sample-link-002","2026-01-16 10:15:00","","False","False","False","alex@northwinddemo.com","olivia@northwinddemo.com"
+"20260311-150000","2026-03-11 15:03:00","Northwind Projects","https://northwinddemo.sharepoint.com/sites/projects","Documents","201","Apollo Kickoff","/sites/projects/Documents/Clients/Apollo/Apollo Kickoff","Folder","True","sample-link-003","View","Anonymous","anonymous","https://northwinddemo.sharepoint.com/:f:/s/projects/sample-link-003","2026-02-01 08:20:00","2026-04-15 00:00:00","False","False","False","marie@northwinddemo.com",""
+"20260311-150000","2026-03-11 15:04:00","Northwind Projects","https://northwinddemo.sharepoint.com/sites/projects","Documents","202","Kickoff Notes.docx","/sites/projects/Documents/Clients/Apollo/Apollo Kickoff/Kickoff Notes.docx","File","False","sample-link-003","View","Anonymous","anonymous","https://northwinddemo.sharepoint.com/:w:/s/projects/sample-link-003b","2026-02-01 08:25:00","2026-04-15 00:00:00","False","False","False","marie@northwinddemo.com",""
+"20260311-150000","2026-03-11 15:06:00","Northwind Projects","https://northwinddemo.sharepoint.com/sites/projects","Documents","203","Budget Draft.xlsx","/sites/projects/Documents/Clients/Boreal/Budget Draft.xlsx","File","True","sample-link-004","Edit","SpecificPeople","users","https://northwinddemo.sharepoint.com/:x:/s/projects/sample-link-004","2026-02-10 13:40:00","2026-03-20 00:00:00","True","False","False","marie@northwinddemo.com","finance@northwinddemo.com; cfo@northwinddemo.com"
+"20260311-150000","2026-03-11 15:08:00","Northwind Marketing","https://northwinddemo.sharepoint.com/sites/marketing","Campaign Files","301","Spring Launch","/sites/marketing/Campaign Files/2026/Spring Launch","Folder","False","sample-link-005","View","Organization","organization","https://northwinddemo.sharepoint.com/:f:/s/marketing/sample-link-005","2026-01-05 11:00:00","","False","False","False","nina@northwinddemo.com",""
+"20260311-150000","2026-03-11 15:10:00","Northwind Marketing","https://northwinddemo.sharepoint.com/sites/marketing","Campaign Files","302","Launch Plan.pptx","/sites/marketing/Campaign Files/2026/Spring Launch/Launch Plan.pptx","File","False","sample-link-006","View","Organization","organization","https://northwinddemo.sharepoint.com/:p:/s/marketing/sample-link-006","2026-01-05 11:10:00","2026-05-30 00:00:00","False","False","False","nina@northwinddemo.com","design@northwinddemo.com; sales@northwinddemo.com"
+"20260311-150000","2026-03-11 15:12:00","Northwind Finance","https://northwinddemo.sharepoint.com/sites/finance","Documents","401","Quarterly Results.pdf","/sites/finance/Documents/Reports/2026/Q1/Quarterly Results.pdf","File","True","sample-link-007","View","SpecificPeople","users","https://northwinddemo.sharepoint.com/:b:/s/finance/sample-link-007","2026-02-28 09:45:00","2026-03-05 00:00:00","False","False","True","jonas@northwinddemo.com","board@northwinddemo.com"
+"20260311-150000","2026-03-11 15:14:00","Northwind Finance","https://northwinddemo.sharepoint.com/sites/finance","Documents","402","Forecast Model.xlsx","/sites/finance/Documents/Models/Forecast Model.xlsx","File","False","sample-link-008","Edit","SpecificPeople","users","https://northwinddemo.sharepoint.com/:x:/s/finance/sample-link-008","2026-02-25 16:20:00","","True","False","False","jonas@northwinddemo.com","analyst1@northwinddemo.com; analyst2@northwinddemo.com"
+"20260311-150000","2026-03-11 15:16:00","Northwind Operations","https://northwinddemo.sharepoint.com/sites/operations","Shared Documents","501","Warehouse SOP.docx","/sites/operations/Shared Documents/Processes/Warehouse SOP.docx","File","False","sample-link-009","Review","Organization","organization","https://northwinddemo.sharepoint.com/:w:/s/operations/sample-link-009","2026-01-22 07:50:00","2026-09-01 00:00:00","False","False","False","erik@northwinddemo.com","opslead@northwinddemo.com"
+"20260311-150000","2026-03-11 15:18:00","Northwind Operations","https://northwinddemo.sharepoint.com/sites/operations","Shared Documents","502","Vendor Onboarding","/sites/operations/Shared Documents/Vendors/Vendor Onboarding","Folder","False","sample-link-010","View","Anonymous","anonymous","https://northwinddemo.sharepoint.com/:f:/s/operations/sample-link-010","2026-02-18 14:05:00","2026-03-18 00:00:00","False","False","False","erik@northwinddemo.com",""
+"20260311-150000","2026-03-11 15:20:00","Northwind Legal","https://northwinddemo.sharepoint.com/sites/legal","Case Files","601","Contract Template.docx","/sites/legal/Case Files/Templates/Contract Template.docx","File","True","sample-link-011","Edit","SpecificPeople","users","https://northwinddemo.sharepoint.com/:w:/s/legal/sample-link-011","2026-01-28 12:30:00","","False","False","False","sophie@northwinddemo.com","counsel@northwinddemo.com; partner@northwinddemo.com"`;
+
+    const state = {
+      rows: [],
+      filteredRows: [],
+      tree: null,
+      rowToNodeId: new Map(),
+      selectedNodeId: null
+    };
+
+    const elements = {
+      fileInput: document.getElementById("file-input"),
+      pickFile: document.getElementById("pick-file"),
+      loadSample: document.getElementById("load-sample"),
+      downloadScript: document.getElementById("download-script"),
+      toggleGuide: document.getElementById("toggle-guide"),
+      closeGuide: document.getElementById("close-guide"),
+      uploadZone: document.getElementById("upload-zone"),
+      statusText: document.getElementById("status-text"),
+      results: document.getElementById("results"),
+      guidePanel: document.getElementById("guide-panel"),
+      summaryGrid: document.getElementById("summary-grid"),
+      chartItemType: document.getElementById("chart-item-type"),
+      chartExpiration: document.getElementById("chart-expiration"),
+      chartSites: document.getElementById("chart-sites"),
+      treeRoot: document.getElementById("tree-root"),
+      detailPane: document.getElementById("detail-pane"),
+      tableBody: document.getElementById("table-body"),
+      tableMeta: document.getElementById("table-meta"),
+      treeSearch: document.getElementById("tree-search"),
+      statusFilter: document.getElementById("status-filter")
+    };
+
+    function setStatus(message, isError = false) {
+      elements.statusText.textContent = message;
+      elements.statusText.style.color = isError ? "var(--danger)" : "var(--muted)";
+    }
+
+    function parseCSV(text) {
+      const rows = [];
+      let row = [];
+      let cell = "";
+      let i = 0;
+      let inQuotes = false;
+
+      while (i < text.length) {
+        const char = text[i];
+        const next = text[i + 1];
+
+        if (inQuotes) {
+          if (char === '"' && next === '"') {
+            cell += '"';
+            i += 2;
+            continue;
+          }
+          if (char === '"') {
+            inQuotes = false;
+            i += 1;
+            continue;
+          }
+          cell += char;
+          i += 1;
+          continue;
+        }
+
+        if (char === '"') {
+          inQuotes = true;
+          i += 1;
+          continue;
+        }
+
+        if (char === ",") {
+          row.push(cell);
+          cell = "";
+          i += 1;
+          continue;
+        }
+
+        if (char === "\n") {
+          row.push(cell);
+          rows.push(row);
+          row = [];
+          cell = "";
+          i += 1;
+          continue;
+        }
+
+        if (char === "\r") {
+          i += 1;
+          continue;
+        }
+
+        cell += char;
+        i += 1;
+      }
+
+      if (cell.length > 0 || row.length > 0) {
+        row.push(cell);
+        rows.push(row);
+      }
+
+      if (!rows.length) {
+        return [];
+      }
+
+      const headers = rows[0].map((value) => value.replace(/^\uFEFF/, "").trim());
+      return rows.slice(1).filter((values) => values.some((value) => value !== "")).map((values) => {
+        const entry = {};
+        headers.forEach((header, index) => {
+          entry[header] = values[index] ?? "";
+        });
+        return entry;
+      });
+    }
+
+    function parseDate(value) {
+      const trimmed = (value || "").trim();
+      if (!trimmed) {
+        return null;
+      }
+
+      const native = new Date(trimmed);
+      if (!Number.isNaN(native.getTime())) {
+        return native;
+      }
+
+      const match = trimmed.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})(?:\s+(\d{1,2}):(\d{2})(?::(\d{2}))?)?$/);
+      if (match) {
+        const [, day, month, year, hour = "0", minute = "0", second = "0"] = match;
+        return new Date(Number(year), Number(month) - 1, Number(day), Number(hour), Number(minute), Number(second));
+      }
+
+      return null;
+    }
+
+    function splitRecipients(value) {
+      return (value || "")
+        .split(";")
+        .map((entry) => entry.trim())
+        .filter(Boolean);
+    }
+
+    function normalizeRow(row, index) {
+      const expirationDate = parseDate(row.Expiration);
+      const now = new Date();
+      const expirationStatus = !expirationDate
+        ? "no-expiration"
+        : expirationDate < now
+          ? "expired"
+          : "dated";
+
+      const recipients = splitRecipients(row.GrantedTo);
+      const sitePath = safeUrlPath(row.SiteUrl);
+      const relativeItemPath = row.ItemPath.startsWith(sitePath)
+        ? row.ItemPath.slice(sitePath.length)
+        : row.ItemPath;
+
+      const rawSegments = relativeItemPath.split("/").map((segment) => decodeURIComponent(segment).trim()).filter(Boolean);
+      const folderSegments = rawSegments.slice(0, Math.max(rawSegments.length - 1, 0));
+
+      return {
+        ...row,
+        _id: `${row.LinkId || "no-link"}-${row.ItemId || index}-${index}`,
+        _rowIndex: index + 1,
+        _expirationDate: expirationDate,
+        _expirationStatus: expirationStatus,
+        _recipientCount: recipients.length,
+        _recipients: recipients,
+        _safeItemType: (row.ItemType || "Unknown").trim() || "Unknown",
+        _folderSegments: folderSegments,
+        _displayPath: [row.SiteTitle, row.LibraryTitle, ...folderSegments, row.ItemName].filter(Boolean).join(" / "),
+        _searchBlob: [
+          row.SiteTitle, row.LibraryTitle, row.ItemName, row.ItemPath, row.GrantedTo, row.LinkId
+        ].join(" ").toLowerCase()
+      };
+    }
+
+    function safeUrlPath(value) {
+      try {
+        return new URL(value).pathname;
+      } catch (_) {
+        return "";
+      }
+    }
+
+    function validateColumns(rows) {
+      if (!rows.length) {
+        throw new Error("CSV does not contain any data rows.");
+      }
+
+      const columns = Object.keys(rows[0]);
+      const missing = REQUIRED_COLUMNS.filter((column) => !columns.includes(column));
+      if (missing.length) {
+        throw new Error(`CSV is missing required columns: ${missing.join(", ")}`);
+      }
+    }
+
+    function countBy(rows, getKey) {
+      const map = new Map();
+      rows.forEach((row) => {
+        const key = getKey(row) || "Unknown";
+        map.set(key, (map.get(key) || 0) + 1);
+      });
+      return map;
+    }
+
+    function buildTree(rows) {
+      let sequence = 0;
+      const rowToNodeId = new Map();
+      const createNode = (type, name, pathKey) => ({
+        id: `${type}:${pathKey}:${sequence++}`,
+        type,
+        name,
+        pathKey,
+        children: [],
+        childMap: new Map(),
+        rows: [],
+        totals: { rows: 0, uniqueLinks: new Set(), uniqueItems: new Set(), expired: 0, noExpiration: 0 }
+      });
+
+      const root = createNode("root", "root", "root");
+
+      rows.forEach((row) => {
+        let cursor = root;
+        const chain = [
+          { type: "site", name: row.SiteTitle || "Unknown Site" },
+          { type: "library", name: row.LibraryTitle || "Unknown Library" },
+          ...row._folderSegments.map((segment) => ({ type: "folder", name: segment })),
+          { type: row._safeItemType.toLowerCase(), name: row.ItemName || `Item ${row.ItemId || ""}`.trim() }
+        ];
+
+        chain.forEach((part) => {
+          const childKey = `${part.type}|${part.name}`;
+          if (!cursor.childMap.has(childKey)) {
+            const node = createNode(part.type, part.name, `${cursor.pathKey}/${childKey}`);
+            cursor.childMap.set(childKey, node);
+            cursor.children.push(node);
+          }
+          cursor = cursor.childMap.get(childKey);
+          cursor.rows.push(row);
+        });
+        rowToNodeId.set(row._id, cursor.id);
+      });
+
+      function finalize(node) {
+        node.children.forEach(finalize);
+        const sourceRows = node.type === "root"
+          ? rows
+          : node.rows;
+        node.totals.rows = sourceRows.length;
+        sourceRows.forEach((row) => {
+          if (row.LinkId) {
+            node.totals.uniqueLinks.add(row.LinkId);
+          }
+          if (row.ItemId) {
+            node.totals.uniqueItems.add(row.ItemId);
+          }
+          if (row._expirationStatus === "expired") {
+            node.totals.expired += 1;
+          }
+          if (row._expirationStatus === "no-expiration") {
+            node.totals.noExpiration += 1;
+          }
+        });
+      }
+
+      finalize(root);
+      return { root, rowToNodeId };
+    }
+
+    function metrics(rows) {
+      const uniqueLinks = new Set(rows.map((row) => row.LinkId).filter(Boolean)).size;
+      const uniqueItems = new Set(rows.map((row) => row.ItemId).filter(Boolean)).size;
+      const sites = new Set(rows.map((row) => row.SiteTitle).filter(Boolean)).size;
+      const expired = rows.filter((row) => row._expirationStatus === "expired").length;
+      const noExpiration = rows.filter((row) => row._expirationStatus === "no-expiration").length;
+
+      return [
+        { label: "Rows", value: rows.length, note: "Each CSV row" },
+        { label: "Unique Links", value: uniqueLinks, note: "Distinct LinkId" },
+        { label: "Unique Items", value: uniqueItems, note: "Distinct ItemId" },
+        { label: "Sites", value: sites, note: "Distinct SiteTitle" },
+        { label: "No Expiration", value: noExpiration, note: `${expired} expired` }
+      ];
+    }
+
+    function renderSummary(rows) {
+      elements.summaryGrid.innerHTML = metrics(rows).map((item) => `
+        <article class="panel summary-card">
+          <div class="summary-label">${escapeHtml(item.label)}</div>
+          <div class="summary-value">${escapeHtml(String(item.value))}</div>
+          <div class="summary-note">${escapeHtml(item.note)}</div>
+        </article>
+      `).join("");
+    }
+
+    function renderBars(target, map, colors) {
+      const entries = [...map.entries()].sort((a, b) => b[1] - a[1]).slice(0, 8);
+      const max = entries[0]?.[1] || 1;
+      target.innerHTML = entries.length
+        ? entries.map(([label, value], index) => `
+            <div class="bar-row">
+              <div class="bar-label">
+                <span>${escapeHtml(label)}</span>
+                <span>${value}</span>
+              </div>
+              <div class="bar-track">
+                <div class="bar-fill" style="width:${(value / max) * 100}%; background:${colors[index % colors.length]};"></div>
+              </div>
+            </div>
+          `).join("")
+        : `<div class="empty">Insufficient data.</div>`;
+    }
+
+    function renderCharts(rows) {
+      renderBars(elements.chartItemType, countBy(rows, (row) => row._safeItemType), [
+        "linear-gradient(90deg, #0f766e, #2dd4bf)",
+        "linear-gradient(90deg, #d97706, #fbbf24)",
+        "linear-gradient(90deg, #0f766e, #f97316)"
+      ]);
+
+      renderBars(elements.chartExpiration, countBy(rows, (row) => row._expirationStatus), [
+        "linear-gradient(90deg, #115e59, #14b8a6)",
+        "linear-gradient(90deg, #b91c1c, #ef4444)",
+        "linear-gradient(90deg, #92400e, #f59e0b)"
+      ]);
+
+      renderBars(elements.chartSites, countBy(rows, (row) => row.SiteTitle), [
+        "linear-gradient(90deg, #1d4ed8, #38bdf8)",
+        "linear-gradient(90deg, #7c3aed, #c084fc)",
+        "linear-gradient(90deg, #15803d, #4ade80)"
+      ]);
+    }
+
+    function renderDetail(node) {
+      if (!node) {
+        elements.detailPane.innerHTML = `<div class="empty">Select a node in the tree to inspect its details.</div>`;
+        return;
+      }
+
+      const sample = node.rows[0];
+      const blocks = [
+        ["Node", node.name],
+        ["Type", node.type],
+        ["Rows", String(node.totals.rows)],
+        ["Unique Links", String(node.totals.uniqueLinks.size)],
+        ["Unique Items", String(node.totals.uniqueItems.size)],
+        ["Expired", String(node.totals.expired)],
+        ["No Expiration", String(node.totals.noExpiration)],
+        ["Sample Site", sample?.SiteTitle || "-"],
+        ["Sample Library", sample?.LibraryTitle || "-"],
+        ["Sample Item", sample?.ItemName || "-"],
+        ["Sample Path", sample?.ItemPath || "-"],
+        ["Granted To", sample?._recipients.join(", ") || "-"],
+        ["LinkId", sample?.LinkId || "-"],
+        ["Expiration", sample?.Expiration || "-"]
+      ];
+
+      elements.detailPane.innerHTML = `
+        <div class="detail-grid">
+          ${blocks.map(([label, value]) => `
+            <div class="detail-item">
+              <strong>${escapeHtml(label)}</strong>
+              <div>${label.includes("Path") || label === "LinkId" ? `<code>${escapeHtml(value)}</code>` : escapeHtml(value)}</div>
+            </div>
+          `).join("")}
+        </div>
+      `;
+    }
+
+    function renderTable(rows) {
+      elements.tableMeta.textContent = `${rows.length} rows visible`;
+      elements.tableBody.innerHTML = rows.slice(0, 250).map((row) => `
+        <tr data-row-id="${escapeHtml(row._id)}">
+          <td>${escapeHtml(row.SiteTitle)}</td>
+          <td>${escapeHtml(row.LibraryTitle)}</td>
+          <td>${escapeHtml(row.ItemName)}</td>
+          <td>${escapeHtml(row._safeItemType)}</td>
+          <td>${escapeHtml(row.Expiration || row._expirationStatus)}</td>
+          <td>${escapeHtml(row.GrantedTo || "-")}</td>
+          <td><code>${escapeHtml(row.LinkId || "-")}</code></td>
+        </tr>
+      `).join("");
+
+      elements.tableBody.querySelectorAll("tr[data-row-id]").forEach((tableRow) => {
+        tableRow.addEventListener("click", () => {
+          const rowId = tableRow.dataset.rowId;
+          const nodeId = state.rowToNodeId.get(rowId);
+          if (!nodeId) {
+            return;
+          }
+          elements.tableBody.querySelectorAll("tr").forEach((row) => row.classList.remove("active"));
+          tableRow.classList.add("active");
+          selectNodeInTree(nodeId, { scroll: true });
+        });
+      });
+    }
+
+    function applyFilters(rows) {
+      const query = elements.treeSearch.value.trim().toLowerCase();
+      const statusFilter = elements.statusFilter.value;
+
+      return rows.filter((row) => {
+        const matchesQuery = !query || row._searchBlob.includes(query);
+        const matchesStatus = statusFilter === "all" || row._expirationStatus === statusFilter;
+        return matchesQuery && matchesStatus;
+      });
+    }
+
+    function findNodeById(node, id) {
+      if (!node) {
+        return null;
+      }
+      if (node.id === id) {
+        return node;
+      }
+      for (const child of node.children) {
+        const found = findNodeById(child, id);
+        if (found) {
+          return found;
+        }
+      }
+      return null;
+    }
+
+    function findNodePath(node, id, path = []) {
+      if (!node) {
+        return null;
+      }
+      const nextPath = [...path, node];
+      if (node.id === id) {
+        return nextPath;
+      }
+      for (const child of node.children) {
+        const found = findNodePath(child, id, nextPath);
+        if (found) {
+          return found;
+        }
+      }
+      return null;
+    }
+
+    function expandPathToNode(nodeId) {
+      const path = findNodePath(state.tree, nodeId);
+      if (!path) {
+        return;
+      }
+
+      path.slice(1, -1).forEach((node) => {
+        const nodeElement = elements.treeRoot.querySelector(`[data-node-id="${CSS.escape(node.id)}"]`);
+        const group = nodeElement?.nextElementSibling;
+        const toggle = nodeElement?.querySelector(".toggle");
+        if (group && group.classList.contains("hidden")) {
+          group.classList.remove("hidden");
+          if (toggle) {
+            toggle.innerHTML = '<i class="fa-solid fa-chevron-down" aria-hidden="true"></i>';
+          }
+        }
+      });
+    }
+
+    function selectNodeInTree(nodeId, options = {}) {
+      if (!state.tree) {
+        return;
+      }
+
+      expandPathToNode(nodeId);
+      const node = findNodeById(state.tree, nodeId);
+      const nodeElement = elements.treeRoot.querySelector(`[data-node-id="${CSS.escape(nodeId)}"]`);
+      if (!node || !nodeElement) {
+        return;
+      }
+
+      state.selectedNodeId = nodeId;
+      elements.treeRoot.querySelectorAll(".tree-node").forEach((treeNode) => treeNode.classList.remove("active"));
+      nodeElement.classList.add("active");
+      renderDetail(node);
+
+      if (options.scroll) {
+        nodeElement.scrollIntoView({ block: "center", behavior: "smooth" });
+      }
+    }
+
+    function renderTree(tree) {
+      if (!tree || !tree.children.length) {
+        elements.treeRoot.innerHTML = `<div class="empty">No nodes found for the current filter.</div>`;
+        renderDetail(null);
+        return;
+      }
+
+      const html = tree.children.map((child) => renderNode(child)).join("");
+      elements.treeRoot.innerHTML = html;
+
+      elements.treeRoot.querySelectorAll("[data-node-id]").forEach((element) => {
+        element.addEventListener("click", (event) => {
+          const nodeId = event.currentTarget.dataset.nodeId;
+          const toggle = event.target.closest(".toggle");
+          if (toggle) {
+            const group = event.currentTarget.nextElementSibling;
+            if (group) {
+              group.classList.toggle("hidden");
+              toggle.innerHTML = group.classList.contains("hidden")
+                ? '<i class="fa-solid fa-chevron-right" aria-hidden="true"></i>'
+                : '<i class="fa-solid fa-chevron-down" aria-hidden="true"></i>';
+            }
+          }
+          selectNodeInTree(nodeId);
+        });
+      });
+
+      const firstNode = tree.children[0];
+      if (firstNode) {
+        selectNodeInTree(firstNode.id);
+      }
+    }
+
+    function renderNode(node) {
+      const hasChildren = node.children.length > 0;
+      const icon = getNodeIcon(node.type);
+      const iconClass = getNodeIconClass(node.type);
+      const badges = [
+        node.totals.expired ? `<span class="badge danger">${node.totals.expired} expired</span>` : "",
+        node.totals.noExpiration ? `<span class="badge warn">${node.totals.noExpiration} no expiry</span>` : "",
+        node.totals.uniqueLinks.size ? `<span class="badge ok">${node.totals.uniqueLinks.size} links</span>` : ""
+      ].join(" ");
+
+      return `
+        <div class="tree-node" data-node-id="${escapeHtml(node.id)}">
+          <span class="toggle">${hasChildren ? '<i class="fa-solid fa-chevron-right" aria-hidden="true"></i>' : ""}</span>
+          <span class="node-icon ${escapeHtml(iconClass)}"><i class="${escapeHtml(icon)}" aria-hidden="true"></i></span>
+          <span class="node-type">${escapeHtml(formatNodeType(node.type))}</span>
+          <span class="node-name">${escapeHtml(node.name)}</span>
+          <span class="node-count">${node.totals.rows} rows</span>
+          ${badges}
+        </div>
+        ${hasChildren ? `<div class="tree-group hidden">${node.children.map((child) => renderNode(child)).join("")}</div>` : ""}
+      `;
+    }
+
+    function renderAll() {
+      state.filteredRows = applyFilters(state.rows);
+      const built = buildTree(state.filteredRows);
+      state.tree = built.root;
+      state.rowToNodeId = built.rowToNodeId;
+
+      renderSummary(state.filteredRows);
+      renderCharts(state.filteredRows);
+      renderTree(state.tree);
+      renderTable(state.filteredRows);
+
+      elements.results.classList.toggle("hidden", state.filteredRows.length === 0);
+      if (state.filteredRows.length === 0) {
+        setStatus("No results for the current filter.", true);
+      } else {
+        setStatus(`${state.filteredRows.length} rows loaded and analyzed.`);
+      }
+    }
+
+    function getNodeIcon(type) {
+      switch (type) {
+        case "site":
+          return "fa-solid fa-building";
+        case "library":
+          return "fa-solid fa-book";
+        case "folder":
+          return "fa-solid fa-folder";
+        case "file":
+          return "fa-solid fa-file";
+        default:
+          return "fa-solid fa-circle";
+      }
+    }
+
+    function getNodeIconClass(type) {
+      switch (type) {
+        case "site":
+          return "site";
+        case "library":
+          return "library";
+        case "folder":
+          return "folder";
+        case "file":
+          return "file";
+        default:
+          return "file";
+      }
+    }
+
+    function formatNodeType(type) {
+      switch (type) {
+        case "site":
+          return "Site";
+        case "library":
+          return "Library";
+        case "folder":
+          return "Folder";
+        case "file":
+          return "File";
+        default:
+          return type || "Node";
+      }
+    }
+
+    async function loadCsvText(text, sourceLabel) {
+      try {
+        const rawRows = parseCSV(text);
+        validateColumns(rawRows);
+        state.rows = rawRows.map(normalizeRow);
+        setStatus(`CSV loaded from ${sourceLabel}.`);
+        renderAll();
+      } catch (error) {
+        console.error(error);
+        state.rows = [];
+        elements.results.classList.add("hidden");
+        setStatus(error.message || "CSV could not be processed.", true);
+      }
+    }
+
+    function escapeHtml(value) {
+      return String(value ?? "")
+        .replace(/&/g, "&amp;")
+        .replace(/</g, "&lt;")
+        .replace(/>/g, "&gt;")
+        .replace(/"/g, "&quot;")
+        .replace(/'/g, "&#39;");
+    }
+
+    async function downloadScriptFile() {
+      try {
+        setStatus("Preparing script download...");
+        const response = await fetch("./web-assets/getallsharinglinks-full.ps1");
+        if (!response.ok) {
+          throw new Error("Script file could not be loaded for download.");
+        }
+
+        const scriptText = await response.text();
+        const blob = new Blob([scriptText], { type: "text/plain;charset=utf-8" });
+        const objectUrl = URL.createObjectURL(blob);
+        const link = document.createElement("a");
+        link.href = objectUrl;
+        link.download = "getallsharinglinks-full.ps1";
+        document.body.appendChild(link);
+        link.click();
+        link.remove();
+        URL.revokeObjectURL(objectUrl);
+        setStatus("Script download started.");
+      } catch (error) {
+        console.error(error);
+        setStatus(error.message || "Script download failed.", true);
+      }
+    }
+
+    elements.pickFile.addEventListener("click", () => elements.fileInput.click());
+    elements.downloadScript.addEventListener("click", () => {
+      downloadScriptFile();
+    });
+    elements.fileInput.addEventListener("change", async (event) => {
+      const file = event.target.files?.[0];
+      if (!file) {
+        return;
+      }
+      setStatus(`Processing ${file.name}...`);
+      const text = await file.text();
+      loadCsvText(text, file.name);
+    });
+
+    ["dragenter", "dragover"].forEach((eventName) => {
+      elements.uploadZone.addEventListener(eventName, (event) => {
+        event.preventDefault();
+        elements.uploadZone.classList.add("dragover");
+      });
+    });
+
+    ["dragleave", "drop"].forEach((eventName) => {
+      elements.uploadZone.addEventListener(eventName, (event) => {
+        event.preventDefault();
+        elements.uploadZone.classList.remove("dragover");
+      });
+    });
+
+    elements.uploadZone.addEventListener("drop", async (event) => {
+      const file = event.dataTransfer?.files?.[0];
+      if (!file) {
+        return;
+      }
+      setStatus(`Processing ${file.name}...`);
+      const text = await file.text();
+      loadCsvText(text, file.name);
+    });
+
+    elements.loadSample.addEventListener("click", () => {
+      setStatus("Loading fictional sample CSV...");
+      loadCsvText(EMBEDDED_SAMPLE_CSV, "fictional sample");
+    });
+
+    elements.toggleGuide.addEventListener("click", () => {
+      elements.guidePanel.classList.toggle("hidden");
+    });
+
+    elements.closeGuide.addEventListener("click", () => {
+      elements.guidePanel.classList.add("hidden");
+    });
+
+    elements.treeSearch.addEventListener("input", () => {
+      if (state.rows.length) {
+        renderAll();
+      }
+    });
+
+    elements.statusFilter.addEventListener("change", () => {
+      if (state.rows.length) {
+        renderAll();
+      }
+    });
+  </script>
+</body>
+</html>
