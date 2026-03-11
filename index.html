@@ -1513,7 +1513,7 @@
       renderTree(state.tree);
       renderTable(state.filteredRows);
 
-      elements.results.classList.toggle("hidden", state.filteredRows.length === 0);
+      elements.results.classList.toggle("hidden", state.rows.length === 0);
       if (state.filteredRows.length === 0) {
         setStatus("No results for the current filter.", true);
       } else {
