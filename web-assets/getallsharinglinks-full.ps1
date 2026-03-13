@@ -1,6 +1,7 @@
 [CmdletBinding()]
 param(
     [string]$TenantName,
+    [string]$OnMicrosoftDomain,
     [string]$ClientId,
     [string]$OutputDirectory = ".",
     [string]$SiteUrl,
@@ -8,10 +9,12 @@ param(
     [switch]$RecoveryOnly,
     [int]$MaxSites = 0,
     [int]$MaxLibrariesPerSite = 0,
-    [int]$MaxItemsPerLibrary = 0
+    [int]$MaxItemsPerLibrary = 0,
+    [string]$ApplicationName = "PnP SharingLinks Scanner"
 )
 
 $ErrorActionPreference = "Stop"
+$script:CurrentConnectedUrl = $null
 
 function Get-InputValue {
     param(
@@ -60,58 +63,28 @@ function Get-SafePercent {
 
 function Import-PnPModule {
     if (-not (Get-Module -ListAvailable -Name PnP.PowerShell)) {
-        throw "PnP.PowerShell is not installed. Install PnP.PowerShell first in PowerShell 7."
+        throw "PnP.PowerShell is not installed. Install it first in PowerShell 7 with: Install-Module PnP.PowerShell -Scope CurrentUser"
     }
 
     Import-Module PnP.PowerShell -ErrorAction Stop
 }
 
-$script:CurrentConnectedUrl = $null
-
-function Connect-DelegatedPnP {
+function Resolve-OnMicrosoftDomain {
     param(
-        [Parameter(Mandatory)][string]$Url,
-        [Parameter(Mandatory)][string]$ClientId,
-        [switch]$ForceReconnect
+        [string]$OnMicrosoftDomain
     )
 
-    if (-not $ForceReconnect -and $script:CurrentConnectedUrl -eq $Url) {
-        return
+    if ([string]::IsNullOrWhiteSpace($OnMicrosoftDomain)) {
+        return $null
     }
 
-    Connect-PnPOnline `
-        -Url $Url `
-        -Interactive `
-        -ClientId $ClientId `
-        -PersistLogin `
-        -ErrorAction Stop
+    $value = $OnMicrosoftDomain.Trim()
 
-    $script:CurrentConnectedUrl = $Url
-}
-
-function New-TenantPaths {
-    param(
-        [Parameter(Mandatory)][string]$BaseDirectory,
-        [Parameter(Mandatory)][string]$TenantName,
-        [Parameter(Mandatory)][string]$RunId
-    )
-
-    $tenantSafe = ($TenantName -replace '[^a-zA-Z0-9\-_]', '_')
-    $tenantDirectory = Join-Path $BaseDirectory $tenantSafe
-
-    if (-not (Test-Path -LiteralPath $tenantDirectory)) {
-        New-Item -Path $tenantDirectory -ItemType Directory -Force | Out-Null
+    if ($value -match '\.onmicrosoft\.com$') {
+        $value = $value -replace '\.onmicrosoft\.com$', ''
     }
 
-    [PSCustomObject]@{
-        TenantDirectory = $tenantDirectory
-        StatePath       = Join-Path $tenantDirectory ("SharingLinks-{0}-RunState.json" -f $tenantSafe)
-        EventLogPath    = Join-Path $tenantDirectory ("SharingLinks-{0}-Events.log" -f $tenantSafe)
-        LockPath        = Join-Path $tenantDirectory ("SharingLinks-{0}.lock" -f $tenantSafe)
-        CleanupQueue    = Join-Path $tenantDirectory ("SharingLinks-{0}-CleanupQueue.csv" -f $tenantSafe)
-        CsvPath         = Join-Path $tenantDirectory ("SharingLinks-{0}-{1}.csv" -f $tenantSafe, $RunId)
-        SummaryPath     = Join-Path $tenantDirectory ("SharingLinks-{0}-Summary-{1}.txt" -f $tenantSafe, $RunId)
-    }
+    return "$value.onmicrosoft.com"
 }
 
 function Write-EventLog {
@@ -139,7 +112,7 @@ function Load-State {
         return $null
     }
 
-    return ($raw | ConvertFrom-Json -Depth 30)
+    return ($raw | ConvertFrom-Json -Depth 50)
 }
 
 function Save-State {
@@ -149,9 +122,34 @@ function Save-State {
     )
 
     $tmpPath = "$Path.tmp"
-    $json = $State | ConvertTo-Json -Depth 30
+    $json = $State | ConvertTo-Json -Depth 50
     Set-Content -LiteralPath $tmpPath -Value $json -Encoding UTF8
     Move-Item -LiteralPath $tmpPath -Destination $Path -Force
+}
+
+function New-TenantPaths {
+    param(
+        [Parameter(Mandatory)][string]$BaseDirectory,
+        [Parameter(Mandatory)][string]$TenantName,
+        [Parameter(Mandatory)][string]$RunId
+    )
+
+    $tenantSafe = ($TenantName -replace '[^a-zA-Z0-9\-_]', '_')
+    $tenantDirectory = Join-Path $BaseDirectory $tenantSafe
+
+    if (-not (Test-Path -LiteralPath $tenantDirectory)) {
+        New-Item -Path $tenantDirectory -ItemType Directory -Force | Out-Null
+    }
+
+    [PSCustomObject]@{
+        TenantDirectory = $tenantDirectory
+        StatePath       = Join-Path $tenantDirectory ("SharingLinks-{0}-RunState.json" -f $tenantSafe)
+        EventLogPath    = Join-Path $tenantDirectory ("SharingLinks-{0}-Events.log" -f $tenantSafe)
+        LockPath        = Join-Path $tenantDirectory ("SharingLinks-{0}.lock" -f $tenantSafe)
+        CleanupQueue    = Join-Path $tenantDirectory ("SharingLinks-{0}-CleanupQueue.csv" -f $tenantSafe)
+        CsvPath         = Join-Path $tenantDirectory ("SharingLinks-{0}-{1}.csv" -f $tenantSafe, $RunId)
+        SummaryPath     = Join-Path $tenantDirectory ("SharingLinks-{0}-Summary-{1}.txt" -f $tenantSafe, $RunId)
+    }
 }
 
 function Initialize-CleanupQueue {
@@ -260,6 +258,7 @@ function New-InitialState {
         CurrentLibraryTitle  = $null
         CurrentItemName      = $null
         TargetSiteUrl        = $null
+        ResolvedClientId     = $null
         Sites                = @()
     }
 }
@@ -370,40 +369,201 @@ function Get-GrantedToString {
     return ($values -join "; ")
 }
 
-function Get-RelevantLibraries {
-    $skipTitles = @(
-        "Form Templates",
-        "Site Assets",
-        "Site Pages",
-        "Sitepagina's",
-        "Style Library",
-        "Stijlbibliotheek",
-        "Images",
-        "Converted Forms",
-        "Preservation Hold Library",
-        "Teams Wiki Data"
+function New-UniqueApplicationName {
+    param(
+        [Parameter(Mandatory)][string]$BaseName,
+        [Parameter(Mandatory)][string]$TenantName,
+        [int]$Attempt = 1
     )
 
-    return @(
-        Get-PnPList | Where-Object {
-            $_.BaseType -eq "DocumentLibrary" -and
-            -not $_.Hidden -and
-            $_.Title -notin $skipTitles
-        } | Sort-Object Title
-    )
+    $safeTenant = ($TenantName -replace '[^a-zA-Z0-9\-_]', '')
+    $safeMachine = ($env:COMPUTERNAME -replace '[^a-zA-Z0-9\-_]', '')
+    $name = "$BaseName - $safeTenant - $safeMachine"
+
+    if ($Attempt -gt 1) {
+        $name = "$name - $Attempt"
+    }
+
+    return $name
 }
 
-function Get-LibraryItems {
+function Register-InteractiveAppWithUniqueName {
     param(
-        [Parameter(Mandatory)]$Library
+        [Parameter(Mandatory)][string]$BaseApplicationName,
+        [Parameter(Mandatory)][string]$TenantName,
+        [Parameter(Mandatory)][string]$FullOnMicrosoftDomain,
+        [int]$MaxAttempts = 20
     )
 
-    return @(
-        Get-PnPListItem `
-            -List $Library `
-            -PageSize 1000 `
-            -Fields "FileRef","FileLeafRef","FSObjType","HasUniqueRoleAssignments"
+    for ($attempt = 1; $attempt -le $MaxAttempts; $attempt++) {
+        $candidateName = New-UniqueApplicationName -BaseName $BaseApplicationName -TenantName $TenantName -Attempt $attempt
+
+        try {
+            Write-Host ("Trying app registration name: {0}" -f $candidateName) -ForegroundColor DarkCyan
+
+            $allOutput = & {
+                Register-PnPEntraIDAppForInteractiveLogin `
+                    -ApplicationName $candidateName `
+                    -Tenant $FullOnMicrosoftDomain `
+                    -SharePointDelegatePermissions "AllSites.FullControl" `
+                    -ErrorAction Stop
+            } *>&1 | Out-String
+
+            Write-Host $allOutput
+
+            $appId = $null
+
+            $guidMatches = [regex]::Matches(
+                $allOutput,
+                '\b[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}\b'
+            )
+
+            if ($guidMatches.Count -gt 0) {
+                $appId = $guidMatches[$guidMatches.Count - 1].Value
+            }
+
+            if (-not $appId) {
+                throw "Interactive app registration completed, but the ClientId could not be parsed from the command output."
+            }
+
+            return [PSCustomObject]@{
+                ApplicationName = $candidateName
+                AppId           = $appId
+            }
+        }
+        catch {
+            $message = $_.Exception.Message
+
+            if ($message -match 'already exists') {
+                Write-Host ("App name already exists: {0}" -f $candidateName) -ForegroundColor Yellow
+                continue
+            }
+
+            throw
+        }
+    }
+
+    throw "Failed to create a unique interactive Entra app registration after $MaxAttempts attempts."
+}
+function Resolve-ClientIdForTenant {
+    param(
+        [Parameter(Mandatory)][string]$TenantName,
+        [string]$OnMicrosoftDomain,
+        [string]$ClientId,
+        [string]$ApplicationName = "PnP SharingLinks Scanner",
+        [string]$OutputDirectory = ".",
+        [string]$SiteUrl,
+        [bool]$IncludeOneDrive = $false,
+        [int]$MaxSites = 0,
+        [int]$MaxLibrariesPerSite = 0,
+        [int]$MaxItemsPerLibrary = 0
     )
+
+    $tenantUrl = "https://$TenantName.sharepoint.com"
+
+    if (-not [string]::IsNullOrWhiteSpace($ClientId)) {
+        try {
+            Set-PnPManagedAppId -Url $tenantUrl -AppId $ClientId | Out-Null
+        }
+        catch {
+        }
+        return $ClientId
+    }
+
+    try {
+        $existing = Get-PnPManagedAppId -Url $tenantUrl
+        if ($existing -and $existing.AppId) {
+            Write-Host ("Using stored ClientId for tenant {0}" -f $TenantName) -ForegroundColor Yellow
+            return $existing.AppId
+        }
+    }
+    catch {
+    }
+
+    if ([string]::IsNullOrWhiteSpace($OnMicrosoftDomain)) {
+        throw "No stored ClientId was found for tenant '$TenantName'. First run requires -OnMicrosoftDomain, for example contoso."
+    }
+
+    $fullOnMicrosoftDomain = Resolve-OnMicrosoftDomain -OnMicrosoftDomain $OnMicrosoftDomain
+
+    Write-Host ""
+    Write-Host "No stored ClientId found. Creating a new interactive Entra app registration..." -ForegroundColor Cyan
+
+    $app = Register-InteractiveAppWithUniqueName `
+        -BaseApplicationName $ApplicationName `
+        -TenantName $TenantName `
+        -FullOnMicrosoftDomain $fullOnMicrosoftDomain
+
+    if (-not $app -or -not $app.AppId) {
+        throw "Failed to create or resolve the interactive Entra app registration."
+    }
+
+    try {
+        Set-PnPManagedAppId -Url $tenantUrl -AppId $app.AppId | Out-Null
+    }
+    catch {
+    }
+
+    Write-Host ""
+    Write-Host "App registration created successfully." -ForegroundColor Green
+    Write-Host ("Application name: {0}" -f $app.ApplicationName) -ForegroundColor Green
+    Write-Host ("ClientId: {0}" -f $app.AppId) -ForegroundColor Green
+    Write-Host ""
+
+    $rerun = ".\GetAllSharingLinks-full.ps1 -TenantName `"$TenantName`" -ClientId `"$($app.AppId)`" -OutputDirectory `"$OutputDirectory`""
+    if (-not [string]::IsNullOrWhiteSpace($SiteUrl)) {
+        $rerun += " -SiteUrl `"$SiteUrl`""
+    }
+    if ($IncludeOneDrive) {
+        $rerun += " -IncludeOneDrive"
+    }
+    if ($MaxSites -gt 0) {
+        $rerun += " -MaxSites $MaxSites"
+    }
+    if ($MaxLibrariesPerSite -gt 0) {
+        $rerun += " -MaxLibrariesPerSite $MaxLibrariesPerSite"
+    }
+    if ($MaxItemsPerLibrary -gt 0) {
+        $rerun += " -MaxItemsPerLibrary $MaxItemsPerLibrary"
+    }
+
+    Write-Host "Choose what you want to do next:" -ForegroundColor Yellow
+    Write-Host "1) Start the scan now"
+    Write-Host "2) Exit and run manually"
+    $choice = Read-Host "Enter 1 or 2"
+
+    if ($choice -eq "1") {
+        Write-Host ""
+        Write-Host "Starting scan using the new ClientId..." -ForegroundColor Green
+        return $app.AppId
+    }
+
+    Write-Host ""
+    Write-Host "Run the script now with this command:" -ForegroundColor Yellow
+    Write-Host $rerun -ForegroundColor Cyan
+    Write-Host ""
+    throw "Interactive app registration completed. Start the scan with the command shown above."
+}
+
+function Connect-DelegatedPnP {
+    param(
+        [Parameter(Mandatory)][string]$Url,
+        [Parameter(Mandatory)][string]$ClientId,
+        [switch]$ForceReconnect
+    )
+
+    if (-not $ForceReconnect -and $script:CurrentConnectedUrl -eq $Url) {
+        return
+    }
+
+    Connect-PnPOnline `
+        -Url $Url `
+        -Interactive `
+        -ClientId $ClientId `
+        -PersistLogin `
+        -ErrorAction Stop
+
+    $script:CurrentConnectedUrl = $Url
 }
 
 function Get-CurrentUserInfoSafe {
@@ -475,16 +635,15 @@ function Add-TemporarySiteCollectionAdminFromAdmin {
     Set-PnPTenantSite -Identity $SiteUrl -Owners $CurrentUserLogin -ErrorAction Stop
 }
 
-function Remove-TemporarySiteCollectionAdminFromAdmin {
+function Remove-TemporarySiteCollectionAdminFromSiteContext {
     param(
-        [Parameter(Mandatory)][string]$AdminUrl,
         [Parameter(Mandatory)][string]$SiteUrl,
         [Parameter(Mandatory)][string]$CurrentUserLogin,
         [Parameter(Mandatory)][string]$ClientId
     )
 
-    Connect-DelegatedPnP -Url $AdminUrl -ClientId $ClientId -ForceReconnect
-    Remove-PnPSiteCollectionAdmin -Site $SiteUrl -Owners $CurrentUserLogin -ErrorAction Stop
+    Connect-DelegatedPnP -Url $SiteUrl -ClientId $ClientId -ForceReconnect
+    Remove-PnPSiteCollectionAdmin -Owners $CurrentUserLogin -ErrorAction Stop
 }
 
 function Ensure-UserIsTemporarySiteCollectionAdmin {
@@ -553,7 +712,7 @@ function Cleanup-TemporarySiteCollectionAdmin {
         return
     }
 
-    Remove-TemporarySiteCollectionAdminFromAdmin -AdminUrl $AdminUrl -SiteUrl $SiteUrl -CurrentUserLogin $CurrentUserLogin -ClientId $ClientId
+    Remove-TemporarySiteCollectionAdminFromSiteContext -SiteUrl $SiteUrl -CurrentUserLogin $CurrentUserLogin -ClientId $ClientId
     Start-Sleep -Milliseconds 500
 
     $verify = Test-IsCurrentUserSiteCollectionAdmin -SiteUrl $SiteUrl -CurrentUserLogin $CurrentUserLogin -ClientId $ClientId
@@ -574,7 +733,7 @@ function Cleanup-TemporarySiteCollectionAdmin {
         -CleanupCompleted $true `
         -RunId $State.RunId
 
-    Write-EventLog -Path $EventLogPath -Message ("Temporary Site Collection Administrator access removed on {0} from admin context" -f $SiteUrl) -Level "INFO"
+    Write-EventLog -Path $EventLogPath -Message ("Temporary Site Collection Administrator access removed on {0} from site context" -f $SiteUrl) -Level "INFO"
 }
 
 function Connect-ToSiteWithRetry {
@@ -598,6 +757,42 @@ function Connect-ToSiteWithRetry {
             Start-Sleep -Seconds (2 * $attempt)
         }
     }
+}
+
+function Get-RelevantLibraries {
+    $skipTitles = @(
+        "Form Templates",
+        "Site Assets",
+        "Site Pages",
+        "Sitepagina's",
+        "Style Library",
+        "Stijlbibliotheek",
+        "Images",
+        "Converted Forms",
+        "Preservation Hold Library",
+        "Teams Wiki Data"
+    )
+
+    return @(
+        Get-PnPList | Where-Object {
+            $_.BaseType -eq "DocumentLibrary" -and
+            -not $_.Hidden -and
+            $_.Title -notin $skipTitles
+        } | Sort-Object Title
+    )
+}
+
+function Get-LibraryItems {
+    param(
+        [Parameter(Mandatory)]$Library
+    )
+
+    return @(
+        Get-PnPListItem `
+            -List $Library `
+            -PageSize 1000 `
+            -Fields "FileRef","FileLeafRef","FSObjType","HasUniqueRoleAssignments"
+    )
 }
 
 function Get-FolderSharingLinksSafe {
@@ -776,6 +971,7 @@ function Write-RunSummary {
     $summary += "Mode: $($State.Mode)"
     $summary += "Tenant: $($State.TenantName)"
     $summary += "TargetSiteUrl: $($State.TargetSiteUrl)"
+    $summary += "ResolvedClientId: $($State.ResolvedClientId)"
     $summary += "StartedAt: $($State.StartedAt)"
     $summary += "CompletedAt: $($State.CompletedAt)"
     $summary += "RunCompleted: $($State.RunCompleted)"
@@ -794,12 +990,23 @@ function Write-RunSummary {
 Import-PnPModule
 
 $TenantName = Get-InputValue -Prompt "Tenant short name (e.g. contoso or sebastianmortelmans)" -Value $TenantName
-$ClientId = Get-InputValue -Prompt "Entra App ClientId" -Value $ClientId
 $OutputDirectory = Ensure-Directory -Path $OutputDirectory
 
 if ($SiteUrl -and $SiteUrl -notmatch "^https://") {
     throw "SiteUrl must be a full SharePoint URL."
 }
+
+$ClientId = Resolve-ClientIdForTenant `
+    -TenantName $TenantName `
+    -OnMicrosoftDomain $OnMicrosoftDomain `
+    -ClientId $ClientId `
+    -ApplicationName $ApplicationName `
+    -OutputDirectory $OutputDirectory `
+    -SiteUrl $SiteUrl `
+    -IncludeOneDrive:$IncludeOneDrive `
+    -MaxSites $MaxSites `
+    -MaxLibrariesPerSite $MaxLibrariesPerSite `
+    -MaxItemsPerLibrary $MaxItemsPerLibrary
 
 $preRunId = Get-Timestamp
 $tenantPaths = New-TenantPaths -BaseDirectory $OutputDirectory -TenantName $TenantName -RunId $preRunId
@@ -835,6 +1042,7 @@ $state = New-InitialState `
     -EventLogPath $paths.EventLogPath
 
 $state.TargetSiteUrl = $SiteUrl
+$state.ResolvedClientId = $ClientId
 
 Save-State -State $state -Path $paths.StatePath
 Initialize-CsvFile -CsvPath $paths.CsvPath
@@ -871,14 +1079,18 @@ try {
     }
     else {
         Write-Host "Retrieving site collections..." -ForegroundColor Cyan
+
         $sites = @(
             Get-PnPTenantSite | Where-Object {
-                if ($IncludeOneDrive) {
-                    $true
+                $url = $_.Url.ToLowerInvariant()
+
+                if (-not $IncludeOneDrive) {
+                    if ($url -like "*/personal/*") { return $false }
+                    if ($url -like "*-my.sharepoint.com*") { return $false }
+                    if ($url -match '^https://[^/]+-my\.sharepoint\.com/?$') { return $false }
                 }
-                else {
-                    $_.Url -notlike "*/personal/*"
-                }
+
+                return $true
             } | Sort-Object Url
         )
 

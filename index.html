@@ -380,7 +380,7 @@
     .guide-card.is-open {
       padding: 20px 24px;
       margin-bottom: 18px;
-      max-height: 1200px;
+      max-height: 2200px;
       opacity: 1;
       pointer-events: auto;
       transform: translateY(0);
@@ -406,7 +406,7 @@
       border: 1px solid rgba(216, 209, 198, 0.8);
     }
 
-    .guide-step strong {
+    .guide-step > strong {
       display: block;
       margin-bottom: 8px;
       font-size: 13px;
@@ -415,15 +415,55 @@
       color: var(--brand-strong);
     }
 
+    .guide-subtitle {
+      display: block;
+      margin-bottom: 6px;
+      font-size: 12px;
+      font-weight: 700;
+      letter-spacing: 0.03em;
+      text-transform: none;
+      color: var(--ink);
+    }
+
+    .guide-subsection + .guide-subsection {
+      margin-top: 18px;
+      padding-top: 18px;
+      border-top: 1px solid rgba(216, 209, 198, 0.8);
+    }
+
     .guide-params {
       display: grid;
-      gap: 8px;
+      gap: 10px;
       margin-top: 10px;
+    }
+
+    .guide-params > div {
+      padding: 12px 14px;
+      border-radius: 12px;
+      background: rgba(255, 248, 238, 0.7);
+      border: 1px solid rgba(216, 209, 198, 0.75);
     }
 
     .guide-params code {
       display: inline-block;
       margin-right: 8px;
+      margin-top: 4px;
+    }
+
+    .guide-list {
+      margin: 12px 0 0;
+      padding-left: 18px;
+      color: var(--muted);
+      font-size: 14px;
+      line-height: 1.6;
+    }
+
+    .guide-list li + li {
+      margin-top: 6px;
+    }
+
+    .guide-example {
+      margin-top: 12px;
     }
 
     .filters input,
@@ -743,7 +783,7 @@
       <div class="toolbar" style="margin-bottom: 0;">
         <div>
           <h3>Quick Guide</h3>
-          <div class="hint">Start with a quick overview, create your Entra app, run the script, and then upload the generated CSV here.</div>
+          <div class="hint">Start with a quick overview, create the Entra app, run the script, and then upload the generated CSV.</div>
         </div>
         <button class="secondary" id="close-guide" type="button">Close</button>
       </div>
@@ -751,70 +791,112 @@
         <article class="guide-step">
           <strong>1. What the script does</strong>
           <p class="hint">
-            The script signs in interactively and scans the SharePoint sites you selected.
+            The script scans SharePoint Online and collects <strong>all sharing links</strong> found in document libraries.
           </p>
+          <ul class="guide-list">
+            <li>Connects interactively using your Microsoft account</li>
+            <li>Temporarily grants <strong>Site Collection Admin</strong> access when required</li>
+            <li>Scans files and folders for sharing links</li>
+            <li>Exports all results to a <strong>CSV file</strong></li>
+          </ul>
           <p class="hint">
-            It checks document libraries, looks at files and folders, and collects the sharing links it finds into one CSV export.
+            After the scan, you can upload the CSV to analyze:
           </p>
+          <ul class="guide-list">
+            <li>External sharing</li>
+            <li>Anonymous links</li>
+            <li>Expired links</li>
+            <li>Risky permissions</li>
+          </ul>
           <p class="hint">
-            If temporary extra access is needed to complete the scan, the script adds that access, logs it, and removes it again afterwards.
-          </p>
-          <p class="hint">
-            This page then turns that CSV into summaries, charts, and a browsable tree view so you can review the results more easily.
-          </p>
-          <p class="hint">
-            We do not store, keep, or analyze your CSV data on a server. Everything here runs locally in your browser with privacy in mind.
-          </p>
-        </article>
-        <article class="guide-step">
-          <strong>2. Create one Entra App Registration</strong>
-          <p class="hint">
-            Go to <code>Entra Admin Center</code>.
-          </p>
-          <p class="hint">
-            Open <code>App registrations</code> and choose <code>New registration</code>.
-          </p>
-          <p class="hint">
-            Use these settings:
-            <br>Name: <code>PnP PowerShell Login</code>
-            <br>Supported account types: <code>Accounts in any organizational directory (Multitenant)</code>
-            <br>Redirect URI: <code>Public client / native</code> with <code>http://localhost</code>
-          </p>
-          <p class="hint">
-            Then open the new app registration and go to <code>Authentication</code>.
-          </p>
-          <p class="hint">
-            Set <code>Allow public client flows</code> to <code>Yes</code>.
-          </p>
-          <p class="hint">
-            Finally, go to <code>Overview</code> and copy the <code>Application (client) ID</code>.
-          </p>
-          <p class="hint">
-            You will use it like this:
-            <br><code>-ClientId "xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx"</code>
+            All processing happens locally. No SharePoint data is stored or transmitted.
           </p>
         </article>
         <article class="guide-step">
-          <strong>3. Run the script</strong>
+          <strong>2. One-time setup</strong>
           <p class="hint">
-            Download `getallsharinglinks-full.ps1`, open PowerShell 7, move to the folder containing the script, and run for example:
+            On the first run, use <strong>OnMicrosoftDomain</strong> so the script can create and store the Entra app ClientId for this tenant.
           </p>
-          <code>pwsh ./getallsharinglinks-full.ps1 -TenantName yourtenant -ClientId "xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx" -OutputDirectory ./output</code>
+          <code>pwsh .\getallsharinglinks-full.ps1 `</code><br>
+          <code>-TenantName yourtenant `</code><br>
+          <code>-OnMicrosoftDomain yourtenant `</code><br>
+          <code>-OutputDirectory .\output</code>
           <p class="hint">
-            `yourtenant` is often the tenant prefix from `yourtenant.onmicrosoft.com` and also the part before
-            `-admin.sharepoint.com`. Sign in through the interactive prompt, let the scan finish, then upload the generated
-            `SharingLinks-*.csv` in this page.
+            <strong>TenantName</strong> is the <strong>SharePoint tenant prefix</strong> used in the admin URL.
+          </p>
+          <div class="guide-example">
+            <code>https://yourtenant-admin.sharepoint.com</code>
+          </div>
+          <p class="hint">
+            In this case:
+          </p>
+          <div class="guide-example">
+            <code>TenantName = yourtenant</code>
+          </div>
+          <p class="hint">
+            After the app is created, the script asks whether it should <strong>start the scan immediately</strong> or stop and show you the rerun command. You normally only do this setup once per tenant.
+          </p>
+        </article>
+        <article class="guide-step">
+          <strong>3. Run a scan</strong>
+          <p class="hint">
+            After the first setup, the stored ClientId is reused automatically. In normal use, this command is enough:
+          </p>
+          <code>pwsh .\getallsharinglinks-full.ps1 `</code><br>
+          <code>-TenantName yourtenant `</code><br>
+          <code>-OutputDirectory .\output</code>
+          <p class="hint">
+            Sign in when prompted and wait for the scan to finish. The script generates a file like:
+          </p>
+          <div class="guide-example">
+            <code>SharingLinks-&lt;tenant&gt;-&lt;timestamp&gt;.csv</code>
+          </div>
+          <p class="hint">
+            During the scan, the script connects to the SharePoint admin site, restores any interrupted cleanup if needed, and then processes sites, libraries, files, and folders one by one.
+          </p>
+          <ul class="guide-list">
+            <li>Shows progress while counting sites, libraries, items, files, folders, and sharing links</li>
+            <li>Temporarily adds Site Collection Admin access when required and removes it again afterwards</li>
+            <li>Writes the main CSV plus recovery and log files in the selected output folder</li>
+          </ul>
+          <p class="hint">
+            Besides the CSV, the script also creates a state file, event log, cleanup queue, and summary file for recovery and audit purposes.
+          </p>
+          <p class="hint">
+            If you run the script on another machine or no stored ClientId is found, you can still pass it explicitly with <code>-ClientId "xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx"</code>.
+          </p>
+          <p class="hint">
+            Upload this CSV file to analyze the results.
           </p>
         </article>
         <article class="guide-step">
           <strong>4. Optional parameters</strong>
+          <p class="hint">
+            You can limit the scan scope if needed.
+          </p>
           <div class="guide-params hint">
-            <div><code>-SiteUrl</code> Scan only one specific SharePoint site instead of the broader tenant scope.</div>
-            <div><code>-IncludeOneDrive</code> Include personal OneDrive sites in the scan.</div>
-            <div><code>-MaxSites</code> Limit how many sites are processed during a test run.</div>
-            <div><code>-MaxLibrariesPerSite</code> Limit the number of libraries checked per site.</div>
-            <div><code>-MaxItemsPerLibrary</code> Limit the number of files and folders checked per library.</div>
-            <div><code>-RecoveryOnly</code> Only finish the cleanup of a previous interrupted run.</div>
+            <div>
+              <strong class="guide-subtitle">Scan a single site</strong><br>
+              <code>-SiteUrl https://tenant.sharepoint.com/sites/project</code>
+            </div>
+            <div>
+              <strong class="guide-subtitle">Include personal OneDrive sites</strong><br>
+              <code>-IncludeOneDrive</code>
+            </div>
+            <div>
+              <strong class="guide-subtitle">Limit scan size (for testing)</strong><br>
+              <code>-MaxSites 5</code><br>
+              <code>-MaxLibrariesPerSite 5</code><br>
+              <code>-MaxItemsPerLibrary 500</code>
+            </div>
+            <div>
+              <strong class="guide-subtitle">Cleanup after interrupted scan</strong><br>
+              <code>-RecoveryOnly</code>
+            </div>
+            <div>
+              <strong class="guide-subtitle">Example</strong><br>
+              <code>pwsh .\getallsharinglinks-full.ps1 -TenantName contoso -SiteUrl https://contoso.sharepoint.com/sites/project -MaxSites 5</code>
+            </div>
           </div>
         </article>
       </div>
@@ -1279,21 +1361,21 @@
 
     function renderCharts(rows) {
       renderBars(elements.chartItemType, countBy(rows, (row) => row._safeItemType), [
-        "linear-gradient(90deg, #0f766e, #2dd4bf)",
-        "linear-gradient(90deg, #d97706, #fbbf24)",
-        "linear-gradient(90deg, #0f766e, #f97316)"
+        "linear-gradient(90deg, #0f766e, #35c6bb)",
+        "linear-gradient(90deg, #c67a1a, #eabf63)",
+        "linear-gradient(90deg, #5f8f86, #9fd5c7)"
       ]);
 
       renderBars(elements.chartExpiration, countBy(rows, (row) => row._expirationStatus), [
-        "linear-gradient(90deg, #115e59, #14b8a6)",
-        "linear-gradient(90deg, #b91c1c, #ef4444)",
-        "linear-gradient(90deg, #92400e, #f59e0b)"
+        "linear-gradient(90deg, #16645d, #2dc3b7)",
+        "linear-gradient(90deg, #c65b3d, #e8906f)",
+        "linear-gradient(90deg, #a86c18, #dfb25a)"
       ]);
 
       renderBars(elements.chartSites, countBy(rows, (row) => row.SiteTitle), [
-        "linear-gradient(90deg, #1d4ed8, #38bdf8)",
-        "linear-gradient(90deg, #7c3aed, #c084fc)",
-        "linear-gradient(90deg, #15803d, #4ade80)"
+        "linear-gradient(90deg, #0f766e, #49b9a8)",
+        "linear-gradient(90deg, #7b8f6a, #b9c98f)",
+        "linear-gradient(90deg, #c67a1a, #e6ba68)"
       ]);
     }
 
