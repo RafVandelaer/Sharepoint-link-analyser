@@ -1,77 +1,83 @@
 # SharePoint Link Analyzer
 
-Client-side SharePoint sharing link analyzer with a PowerShell export script.
+Analyze SharePoint sharing links locally in the browser, using a PowerShell export from SharePoint Online.
 
-This repository contains:
+## Live Version
 
-- A static web page that analyzes a CSV export fully in the browser
-- A PowerShell 7 script that scans SharePoint Online for sharing links
-- No backend, database, or server-side data processing
+The online version of the tool is available at:
 
-## What It Does
+- [sharepointer.be](https://sharepointer.be)
 
-The PowerShell script in [web-assets/getallsharinglinks-full.ps1](web-assets/getallsharinglinks-full.ps1) connects to SharePoint Online, scans document libraries, collects sharing links for files and folders, and exports the results to CSV.
+## What This Project Is
 
-The web analyzer in [index.html](index.html) lets you upload that CSV and inspect it locally with:
+This repository combines two parts:
 
-- Summary metrics
-- Expiration and item-type charts
-- Top sites overview
-- Tree view based on `ItemPath`
-- Detail pane per node
-- Search and status filters
+1. A PowerShell 7 export script that scans SharePoint Online and writes a CSV with sharing links.
+2. A browser-based analyzer that loads that CSV locally and helps you review and remediate risky links.
+
+No backend is required for the analyzer. The CSV is parsed in the browser.
+
+## Main Capabilities
+
+### Export script
+
+The script in [web-assets/getallsharinglinks-full.ps1](web-assets/getallsharinglinks-full.ps1):
+
+- signs in interactively with `PnP.PowerShell`
+- scans SharePoint Online document libraries
+- collects sharing links for files and folders
+- can create and store the Entra app `ClientId` on first run
+- supports interrupted-run recovery
+- writes CSV, state, event log, cleanup queue, and summary output
+
+### Analyzer
+
+The analyzer in [index.html](index.html):
+
+- uploads and validates the CSV
+- shows summary metrics and charts
+- provides a tree view based on `ItemPath`
+- shows detail for the selected node
+- supports row-level review in the raw table
+- highlights urgent links using a risk heuristic
+- generates remediation PowerShell for critical or selected links
 
 ## Privacy Model
 
-The analyzer runs entirely in the browser. Your CSV is not uploaded to a server by this project.
+The analyzer runs client-side in the browser.
 
-The PowerShell script reads SharePoint data from your tenant and writes output files locally to the folder you choose.
+- The CSV is not uploaded by this project to a backend.
+- SharePoint content is read only by the PowerShell script you run yourself.
+- The script writes all outputs to your local output folder.
 
 ## Repository Structure
 
 ```text
 .
 ├── index.html
+├── README.md
 ├── web-assets/
 │   ├── favicon.svg
 │   └── getallsharinglinks-full.ps1
 └── old/
-    └── previous prototype and archived files
+    └── earlier prototype files
 ```
 
-## Requirements
+## Quick Start
 
-### For the web analyzer
-
-- A modern browser
-- The generated CSV from the PowerShell script
-
-You can open `index.html` directly in a browser, or host it as a static file on GitHub Pages, SharePoint, a web server, or local static hosting.
-
-### For the PowerShell script
+### 1. Install prerequisites
 
 - PowerShell 7
 - `PnP.PowerShell`
-- Access to SharePoint Online
-- Permission to sign in interactively
-- Enough rights to create the Entra app on first run, or an existing stored `ClientId`
+- access to SharePoint Online
 
-If `PnP.PowerShell` is missing, install it with:
+Install the PowerShell module if needed:
 
 ```powershell
 Install-Module PnP.PowerShell -Scope CurrentUser
 ```
 
-## Quick Start
-
-### 1. Download or clone the repository
-
-```bash
-git clone <your-repo-url>
-cd Sharepoint-link-analyser
-```
-
-### 2. Run the PowerShell export script
+### 2. Run the export script
 
 First run for a tenant:
 
@@ -92,60 +98,77 @@ pwsh .\web-assets\getallsharinglinks-full.ps1 `
 
 ### 3. Open the analyzer
 
-Open `index.html` in your browser.
+Use one of these:
 
-### 4. Upload the generated CSV
+- open [index.html](index.html) locally
+- use the hosted version at [sharepointer.be](https://sharepointer.be)
 
-Upload the file created by the script, typically named like:
+### 4. Upload the CSV
+
+Typical export file name:
 
 ```text
 SharingLinks-<tenant>-<timestamp>.csv
 ```
 
+## End-to-End Workflow
+
+1. Run the PowerShell script against your tenant.
+2. Wait for the export to complete.
+3. Open the analyzer and upload the CSV.
+4. Use summary cards and charts to understand the overall sharing landscape.
+5. Use `Urgent Review` to inspect the most suspicious links first.
+6. Use `Tree View`, `Detail`, and `Raw Rows` to validate context.
+7. Select links you want to remediate.
+8. Generate and copy a PowerShell remediation script.
+9. Review the script carefully before executing it.
+
 ## PowerShell Script
 
-### Script Location
+### Script location
 
 [web-assets/getallsharinglinks-full.ps1](web-assets/getallsharinglinks-full.ps1)
 
-### How the Script Works
+### What it does
 
 At a high level, the script:
 
 1. Loads `PnP.PowerShell`
-2. Resolves or creates a `ClientId` for the tenant
-3. Creates a tenant-specific output folder structure
-4. Restores cleanup for an interrupted previous run if needed
+2. Resolves or creates a tenant `ClientId`
+3. Creates tenant-specific output paths
+4. Recovers from interrupted previous runs if needed
 5. Connects to the SharePoint admin site
 6. Enumerates sites and document libraries
-7. Scans files and folders for sharing links
-8. Temporarily grants Site Collection Admin where required
-9. Writes CSV, state, summary, event log, and cleanup data
-10. Removes temporary access again during cleanup
+7. Reads sharing links from files and folders
+8. Temporarily grants Site Collection Admin when required
+9. Logs progress and writes outputs
+10. Removes temporary admin access during cleanup
 
-### First Run vs Later Runs
+### First run vs later runs
 
-On the first run, the script can create the required Entra app registration automatically when you pass `-OnMicrosoftDomain`.
+On the first run, pass `-OnMicrosoftDomain` so the script can create and store the Entra app `ClientId`.
 
-After that, the tenant's `ClientId` is stored and reused automatically when available. You can still provide `-ClientId` explicitly if you want to run from another machine or bypass stored configuration.
+After that, the stored `ClientId` is reused automatically when available.
 
-### Main Parameters
+You can still pass `-ClientId` explicitly if needed, for example on another machine.
 
-- `-TenantName`: SharePoint tenant prefix, for example `contoso`
-- `-OnMicrosoftDomain`: required on first run when no stored `ClientId` exists yet
+### Main parameters
+
+- `-TenantName`: tenant prefix, for example `contoso`
+- `-OnMicrosoftDomain`: required on first run if no stored `ClientId` exists
 - `-ClientId`: optional explicit app id
 - `-OutputDirectory`: base output folder
-- `-SiteUrl`: scan a single site only
+- `-SiteUrl`: scan a single site
 - `-IncludeOneDrive`: include personal OneDrive sites
-- `-RecoveryOnly`: run cleanup/recovery without starting a new scan
+- `-RecoveryOnly`: only perform recovery/cleanup
 - `-MaxSites`: limit number of sites
 - `-MaxLibrariesPerSite`: limit number of libraries per site
 - `-MaxItemsPerLibrary`: limit number of items per library
-- `-ApplicationName`: custom app registration name base
+- `-ApplicationName`: custom Entra app base name
 
-### Example Commands
+### Example commands
 
-Scan a single site:
+Single site:
 
 ```powershell
 pwsh .\web-assets\getallsharinglinks-full.ps1 `
@@ -183,20 +206,20 @@ pwsh .\web-assets\getallsharinglinks-full.ps1 `
   -OutputDirectory .\output
 ```
 
-### Output Files
+### Output files
 
-For each tenant, the script writes files to a tenant-specific folder inside your chosen output directory:
+The script writes tenant-specific files inside your chosen output directory:
 
-- `SharingLinks-<tenant>-<timestamp>.csv`: main export for the analyzer
-- `SharingLinks-<tenant>-RunState.json`: run state and recovery data
-- `SharingLinks-<tenant>-Events.log`: event log
-- `SharingLinks-<tenant>-CleanupQueue.csv`: cleanup tracking
-- `SharingLinks-<tenant>-Summary-<timestamp>.txt`: summary report
-- `SharingLinks-<tenant>.lock`: lock file while a run is active
+- `SharingLinks-<tenant>-<timestamp>.csv`
+- `SharingLinks-<tenant>-RunState.json`
+- `SharingLinks-<tenant>-Events.log`
+- `SharingLinks-<tenant>-CleanupQueue.csv`
+- `SharingLinks-<tenant>-Summary-<timestamp>.txt`
+- `SharingLinks-<tenant>.lock`
 
-### CSV Columns
+### CSV columns
 
-The exported CSV includes these main fields:
+The CSV includes fields such as:
 
 - `RunId`
 - `ExportedAt`
@@ -221,57 +244,75 @@ The exported CSV includes these main fields:
 - `CreatedBy`
 - `GrantedTo`
 
-## Web Analyzer
+## Analyzer Features
 
-### Features
+[index.html](index.html) is the main analyzer page.
 
-The analyzer in `index.html` supports:
+Core features:
 
-- Drag and drop CSV upload
-- Embedded fictional sample CSV
-- Local parsing and validation
-- Summary cards for rows, links, items, sites, and expiration
-- Charts by item type, expiration status, and top sites
-- Tree navigation grouped by item path
-- Detail panel for the selected node
-- Search across site, item, and path
-- Status filter including expired-only view
-- Script download button for the PowerShell file
+- drag-and-drop CSV upload
+- local parsing and validation
+- summary cards
+- charts by item type, expiration status, and top sites
+- tree-based navigation
+- detail pane for the current node
+- raw rows table
+- search and expiration filters
+- urgent review
+- remediation script generation
+- bundled PowerShell download button
 
-### Required CSV Columns
+## Risk Review and Remediation
 
-The page validates uploaded CSV files and expects the columns generated by the bundled script. At minimum, the structure should match the export generated by `getallsharinglinks-full.ps1`.
+The remediation workflow is designed around three steps:
 
-### Running Locally
+1. `Urgent Review`
+   Surfaces links that deserve attention first.
+
+2. `Selection`
+   Lets you choose links from the urgent list or raw rows.
+
+3. `Remediation`
+   Generates PowerShell commands you can review and run yourself.
+
+The page does not delete links directly. It only prepares a script.
+
+### Current risk signals
+
+The urgency score currently considers signals such as:
+
+- no expiration
+- anonymous scope
+- organization-wide scope
+- folder-level sharing
+- edit or review permissions
+- many recipients
+- unique permissions
+- folders with many exposed items underneath them
+
+This is a heuristic, not a compliance decision engine.
+
+## Running Locally
 
 Simplest option:
 
-- Double-click `index.html`
+- open `index.html` directly in a browser
 
-Optional static hosting:
+Optional local static hosting:
 
 ```bash
 python3 -m http.server 8080
 ```
 
-Then open `http://localhost:8080`.
+Then open:
 
-## Typical Workflow
-
-1. Run the PowerShell script against your tenant
-2. Wait for the scan to complete
-3. Locate the generated CSV in your output folder
-4. Open `index.html`
-5. Upload the CSV
-6. Review summary metrics, charts, and the tree view
-7. Filter for expired or risky links
-8. Drill into the detail panel for specific items or folders
+- `http://localhost:8080/index.html`
 
 ## Troubleshooting
 
 ### `PnP.PowerShell is not installed`
 
-Install the module:
+Install it:
 
 ```powershell
 Install-Module PnP.PowerShell -Scope CurrentUser
@@ -279,7 +320,7 @@ Install-Module PnP.PowerShell -Scope CurrentUser
 
 ### `No stored ClientId was found`
 
-Run the script once with `-OnMicrosoftDomain`, for example:
+Run once with `-OnMicrosoftDomain`:
 
 ```powershell
 pwsh .\web-assets\getallsharinglinks-full.ps1 `
@@ -299,29 +340,30 @@ pwsh .\web-assets\getallsharinglinks-full.ps1 `
   -OutputDirectory .\output
 ```
 
+### The CSV does not load
+
+Check:
+
+- the file is a CSV export from this script
+- the header row is intact
+- the file is not empty
+- required columns are present
+- `ItemPath` values are not damaged by manual editing
+
 ### The script finds no sites
 
 Check:
 
-- The tenant name is correct
-- You are signing into the intended tenant
-- OneDrive filtering is not excluding what you expected to scan
-- Your account has the required access
-
-### The CSV does not load in the analyzer
-
-Check:
-
-- The file is a CSV export from this script
-- The header row is intact
-- The file is not empty
-- Required columns are present
+- the tenant name is correct
+- you signed into the intended tenant
+- OneDrive filtering is not excluding expected content
+- your account has sufficient access
 
 ## Notes
 
-- The `old/` folder contains earlier prototype files and is not the current app
-- The current analyzer is a single-file static frontend in `index.html`
-- The current export script is `web-assets/getallsharinglinks-full.ps1`
+- `old/` contains earlier prototype files and is not the current app
+- `index.html` is the analyzer entrypoint
+- `web-assets/getallsharinglinks-full.ps1` is the current export script
 
 ## License
 

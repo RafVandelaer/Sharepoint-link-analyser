@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Sharepoint Link Analyzer</title>
+  <title>SharePoint Link Analyzer</title>
   <link rel="icon" type="image/svg+xml" href="./web-assets/favicon.svg">
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.2/css/all.min.css" referrerpolicy="no-referrer">
   <style>
@@ -387,6 +387,123 @@
       font-weight: 600;
     }
 
+    .remediation-grid {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 18px;
+    }
+
+    .remediation-panel {
+      padding: 24px;
+      margin-bottom: 18px;
+      background:
+        linear-gradient(145deg, rgba(15, 118, 110, 0.05), rgba(255, 253, 249, 0.9)),
+        var(--surface);
+    }
+
+    .remediation-head {
+      display: flex;
+      justify-content: space-between;
+      align-items: flex-start;
+      gap: 16px;
+      margin-bottom: 0;
+    }
+
+    .remediation-head p {
+      margin: 8px 0 0;
+      color: var(--muted);
+      line-height: 1.6;
+      max-width: 72ch;
+    }
+
+    .remediation-body {
+      max-height: 0;
+      overflow: hidden;
+      opacity: 0;
+      transition: max-height 240ms ease, opacity 180ms ease, margin-top 240ms ease;
+    }
+
+    .remediation-panel.is-open .remediation-body {
+      max-height: 8000px;
+      opacity: 1;
+      margin-top: 16px;
+    }
+
+    .remediation-toggle i {
+      transition: transform 180ms ease;
+    }
+
+    .remediation-panel.is-open .remediation-toggle i {
+      transform: rotate(180deg);
+    }
+
+    .remediation-card {
+      padding: 24px;
+      background: rgba(255, 252, 246, 0.78);
+      border: 1px solid rgba(216, 209, 198, 0.82);
+      box-shadow: none;
+      backdrop-filter: none;
+    }
+
+    .remediation-card p {
+      margin: 8px 0 0;
+      color: var(--muted);
+      line-height: 1.6;
+    }
+
+    .remediation-meta {
+      margin-top: 14px;
+      color: var(--muted);
+      font-size: 14px;
+      line-height: 1.6;
+    }
+
+    .script-preview {
+      margin-top: 16px;
+      border-radius: 14px;
+      background: rgba(31, 42, 46, 0.04);
+      border: 1px solid rgba(216, 209, 198, 0.9);
+      color: var(--ink);
+      overflow: hidden;
+    }
+
+    .script-preview-scroll {
+      max-height: 320px;
+      overflow: auto;
+      overflow-x: hidden;
+      padding: 16px;
+      scrollbar-gutter: stable;
+      font-family: var(--mono);
+      font-size: 13px;
+      line-height: 1.6;
+      white-space: pre-wrap;
+      word-break: break-word;
+    }
+
+    .script-preview-content.empty {
+      font-family: var(--sans);
+      color: var(--muted);
+    }
+
+    .toolbar-actions {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      flex-wrap: wrap;
+      margin-left: auto;
+    }
+
+    .row-select {
+      width: 18px;
+      height: 18px;
+      accent-color: var(--brand);
+      cursor: pointer;
+    }
+
+    tbody tr.selected {
+      background: rgba(15, 118, 110, 0.08);
+    }
+
     .summary-card {
       position: relative;
       overflow: hidden;
@@ -464,8 +581,26 @@
     }
 
     .workspace {
-      grid-template-columns: minmax(0, 1fr);
+      grid-template-columns: minmax(0, 1.7fr) minmax(300px, 0.75fr);
       align-items: start;
+    }
+
+    .selection-bar {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 16px;
+      padding: 18px 22px;
+      margin-top: 18px;
+      margin-bottom: 18px;
+      background:
+        linear-gradient(145deg, rgba(15, 118, 110, 0.06), rgba(255, 253, 249, 0.92)),
+        var(--surface);
+    }
+
+    .selection-copy {
+      color: var(--muted);
+      line-height: 1.6;
     }
 
     .toolbar {
@@ -616,15 +751,16 @@
     }
 
     .tree-wrap {
-      max-height: 760px;
+      max-height: calc(100vh - 108px);
       overflow: auto;
-      padding-right: 4px;
+      padding-right: 2px;
+      scrollbar-gutter: stable;
     }
 
     .tree-group {
-      margin-left: 18px;
+      margin-left: 10px;
       border-left: 1px dashed rgba(100, 112, 116, 0.35);
-      padding-left: 12px;
+      padding-left: 8px;
     }
 
     .tree-node {
@@ -689,12 +825,28 @@
     }
 
     .node-type {
-      min-width: 66px;
+      min-width: 58px;
       font-size: 11px;
       font-weight: 700;
       letter-spacing: 0.05em;
       text-transform: uppercase;
       color: var(--brand-strong);
+    }
+
+    .node-main {
+      flex: 1;
+      min-width: 0;
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+
+    .node-heading {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      min-width: 0;
+      flex: 1;
     }
 
     .node-name {
@@ -705,25 +857,39 @@
       white-space: nowrap;
     }
 
+    .node-badges {
+      display: flex;
+      align-items: center;
+      flex-wrap: wrap;
+      gap: 8px;
+      justify-content: flex-end;
+    }
+
     .node-count {
       font-size: 13px;
       color: var(--muted);
     }
 
-    .node-link {
+    .node-action {
       display: inline-flex;
       align-items: center;
       justify-content: center;
-      width: 32px;
-      height: 32px;
+      width: 30px;
+      height: 30px;
       border-radius: 10px;
       color: var(--brand-strong);
       background: rgba(15, 118, 110, 0.1);
-      text-decoration: none;
       flex-shrink: 0;
+      opacity: 0.35;
+      transition: opacity 160ms ease, background 160ms ease;
     }
 
-    .node-link:hover {
+    .tree-node:hover .node-action,
+    .tree-node.active .node-action {
+      opacity: 1;
+    }
+
+    .node-action:hover {
       background: rgba(15, 118, 110, 0.18);
     }
 
@@ -752,8 +918,40 @@
 
     .detail-grid {
       display: grid;
-      grid-template-columns: repeat(2, minmax(0, 1fr));
+      grid-template-columns: 1fr;
       gap: 10px 16px;
+    }
+
+    .detail-card {
+      position: sticky;
+      top: 20px;
+      max-height: calc(100vh - 40px);
+      overflow: hidden;
+    }
+
+    .detail-scroll {
+      max-height: calc(100vh - 108px);
+      overflow: auto;
+      overflow-x: hidden;
+      padding-right: 4px;
+      scrollbar-gutter: stable;
+    }
+
+    .detail-section {
+      display: grid;
+      gap: 10px;
+    }
+
+    .detail-section + .detail-section {
+      margin-top: 14px;
+    }
+
+    .detail-section-title {
+      font-size: 12px;
+      font-weight: 700;
+      letter-spacing: 0.05em;
+      text-transform: uppercase;
+      color: var(--brand-strong);
     }
 
     .detail-item {
@@ -832,7 +1030,8 @@
       .hero,
       .workspace,
       .grid-5,
-      .grid-3 {
+      .grid-3,
+      .remediation-grid {
         grid-template-columns: 1fr;
       }
 
@@ -884,7 +1083,7 @@
   <main class="shell">
     <section class="hero">
       <article class="panel hero-copy">
-        <h1>Sharepoint Link Analyzer</h1>
+        <h1>SharePoint Link Analyzer</h1>
         <p>
           Upload a CSV export from the PowerShell script and analyze everything locally in the browser.
           This version also highlights the links and folders that are most urgent to review first,
@@ -920,97 +1119,108 @@
     <section class="panel guide-card" id="guide-panel" aria-hidden="true">
       <div class="toolbar" style="margin-bottom: 0;">
         <div>
-          <h3>Quick Guide</h3>
-          <div class="hint">Start with a quick overview, create the Entra app, run the script, and then upload the generated CSV.</div>
+          <h3>Guide</h3>
+          <div class="hint">End-to-end workflow: create the export, upload it, review the riskiest links, select what matters, and generate remediation commands safely.</div>
         </div>
         <button class="secondary" id="close-guide" type="button">Close</button>
       </div>
       <div class="guide-steps">
         <article class="guide-step">
-          <strong>1. What the script does</strong>
+          <strong>1. Create the CSV export</strong>
           <p class="hint">
-            The script scans SharePoint Online and collects <strong>all sharing links</strong> found in document libraries.
+            The PowerShell script scans SharePoint Online and exports <strong>sharing links</strong> for files and folders in document libraries.
           </p>
           <ul class="guide-list">
             <li>Connects interactively using your Microsoft account</li>
             <li>Temporarily grants <strong>Site Collection Admin</strong> access when required</li>
             <li>Scans files and folders for sharing links</li>
-            <li>Exports all results to a <strong>CSV file</strong></li>
+            <li>Writes a <strong>CSV export</strong> plus state, log, cleanup, and summary files</li>
           </ul>
           <p class="hint">
-            After the scan, you can upload the CSV to analyze:
-          </p>
-          <ul class="guide-list">
-            <li>External sharing</li>
-            <li>Anonymous links</li>
-            <li>Expired links</li>
-            <li>Risky permissions</li>
-          </ul>
-          <p class="hint">
-            All processing happens locally. No SharePoint data is stored or transmitted.
-          </p>
-        </article>
-        <article class="guide-step">
-          <strong>2. One-time setup</strong>
-          <p class="hint">
-            On the first run, use <strong>OnMicrosoftDomain</strong> so the script can create and store the Entra app ClientId for this tenant.
+            First run for a tenant:
           </p>
           <code>pwsh .\getallsharinglinks-full.ps1 `</code><br>
           <code>-TenantName yourtenant `</code><br>
           <code>-OnMicrosoftDomain yourtenant `</code><br>
           <code>-OutputDirectory .\output</code>
           <p class="hint">
-            <strong>TenantName</strong> is the <strong>SharePoint tenant prefix</strong> used in the admin URL.
-          </p>
-          <div class="guide-example">
-            <code>https://yourtenant-admin.sharepoint.com</code>
-          </div>
-          <p class="hint">
-            In this case:
-          </p>
-          <div class="guide-example">
-            <code>TenantName = yourtenant</code>
-          </div>
-          <p class="hint">
-            After the app is created, the script asks whether it should <strong>start the scan immediately</strong> or stop and show you the rerun command. You normally only do this setup once per tenant.
-          </p>
-        </article>
-        <article class="guide-step">
-          <strong>3. Run a scan</strong>
-          <p class="hint">
-            After the first setup, the stored ClientId is reused automatically. In normal use, this command is enough:
+            Later runs normally only need:
           </p>
           <code>pwsh .\getallsharinglinks-full.ps1 `</code><br>
           <code>-TenantName yourtenant `</code><br>
           <code>-OutputDirectory .\output</code>
+        </article>
+        <article class="guide-step">
+          <strong>2. Upload and explore</strong>
           <p class="hint">
-            Sign in when prompted and wait for the scan to finish. The script generates a file like:
+            Upload the generated CSV into this page. All parsing and analysis happen <strong>locally in your browser</strong>.
           </p>
           <div class="guide-example">
             <code>SharingLinks-&lt;tenant&gt;-&lt;timestamp&gt;.csv</code>
           </div>
           <p class="hint">
-            During the scan, the script connects to the SharePoint admin site, restores any interrupted cleanup if needed, and then processes sites, libraries, files, and folders one by one.
+            Once loaded, use the page in this order:
           </p>
           <ul class="guide-list">
-            <li>Shows progress while counting sites, libraries, items, files, folders, and sharing links</li>
-            <li>Temporarily adds Site Collection Admin access when required and removes it again afterwards</li>
-            <li>Writes the main CSV plus recovery and log files in the selected output folder</li>
+            <li><strong>Summary</strong> for quick scale and expiration counts</li>
+            <li><strong>Urgent Review</strong> for the riskiest candidate links first</li>
+            <li><strong>Charts</strong> for trends by type, expiration, and site</li>
+            <li><strong>Tree View</strong> plus <strong>Detail</strong> to inspect where the links live</li>
+            <li><strong>Raw Rows</strong> when you want exact row-level selection</li>
           </ul>
           <p class="hint">
-            Besides the CSV, the script also creates a state file, event log, cleanup queue, and summary file for recovery and audit purposes.
-          </p>
-          <p class="hint">
-            If you run the script on another machine or no stored ClientId is found, you can still pass it explicitly with <code>-ClientId "xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx"</code>.
-          </p>
-          <p class="hint">
-            Upload this CSV file to analyze the results.
+            This page does not upload your CSV to a backend.
           </p>
         </article>
         <article class="guide-step">
-          <strong>4. Optional parameters</strong>
+          <strong>3. Review the highest-risk links</strong>
           <p class="hint">
-            You can limit the scan scope if needed.
+            <strong>Urgent Review</strong> surfaces the links that should usually be checked first. The score is a heuristic, not an automatic decision.
+          </p>
+          <ul class="guide-list">
+            <li>No expiration</li>
+            <li>Anonymous or broad organization scope</li>
+            <li>Folder-level sharing</li>
+            <li>Edit or review permissions</li>
+            <li>Many recipients</li>
+            <li>Unique permissions</li>
+            <li>Folders that expose many items underneath them</li>
+          </ul>
+          <p class="hint">
+            Use the tree to understand location and inheritance, then jump to <strong>Raw Rows</strong> when you want to act on a specific link.
+          </p>
+        </article>
+        <article class="guide-step">
+          <strong>4. Select links for remediation</strong>
+          <p class="hint">
+            The page gives you two safe ways to prepare remediation:
+          </p>
+          <ul class="guide-list">
+            <li><strong>Critical Links</strong>: use the automatically generated script for links that currently score as <strong>Critical</strong></li>
+            <li><strong>Selected Links</strong>: select rows manually in <strong>Urgent Review</strong> or <strong>Raw Rows</strong></li>
+          </ul>
+          <p class="hint">
+            Selection does not execute anything. It only prepares a PowerShell script that you can review and copy.
+          </p>
+        </article>
+        <article class="guide-step">
+          <strong>5. Generate and run remediation</strong>
+          <p class="hint">
+            Open <strong>Remediation</strong> to generate PowerShell for either critical links or your manual selection.
+          </p>
+          <ul class="guide-list">
+            <li>The page never removes links by itself</li>
+            <li>You copy the generated script and run it yourself in PowerShell</li>
+            <li>The removal commands are generated per CSV row and deduplicated where needed</li>
+          </ul>
+          <p class="hint">
+            Treat the generated script as a starting point: review the targets, validate business context, and only then execute it.
+          </p>
+        </article>
+        <article class="guide-step">
+          <strong>6. Optional script parameters</strong>
+          <p class="hint">
+            If you need a smaller or more targeted export, use optional parameters on the PowerShell side.
           </p>
           <div class="guide-params hint">
             <div>
@@ -1100,24 +1310,30 @@
           </div>
           <div class="tree-wrap" id="tree-root"></div>
         </section>
+        <section class="panel detail-card">
+          <h3>Detail</h3>
+          <div class="detail-scroll">
+            <div id="detail-pane" class="empty">
+              Select a node in the tree to inspect its details.
+            </div>
+          </div>
+        </section>
       </div>
-
-      <section class="panel detail-card" style="margin-top: 18px;">
-        <h3>Detail</h3>
-        <div id="detail-pane" class="empty">
-          Select a node in the tree to inspect its details.
-        </div>
-      </section>
 
       <section class="panel table-card" style="margin-top: 18px;">
         <div class="toolbar">
           <h3>Raw Rows</h3>
-          <div class="hint" id="table-meta"></div>
+          <div class="toolbar-actions">
+            <div class="hint" id="table-meta"></div>
+            <button class="secondary" id="select-visible-rows" type="button">Select Visible</button>
+            <button class="secondary" id="clear-visible-rows" type="button">Clear Visible</button>
+          </div>
         </div>
         <div class="table-wrap">
           <table>
             <thead>
               <tr>
+                <th>Select</th>
                 <th>Site</th>
                 <th>Library</th>
                 <th>Item</th>
@@ -1129,6 +1345,68 @@
             </thead>
             <tbody id="table-body"></tbody>
           </table>
+        </div>
+      </section>
+
+      <section class="panel selection-bar">
+        <div class="selection-copy" id="selection-summary">
+          No links selected yet. Select links from Urgent Review or Raw Rows to prepare remediation.
+        </div>
+        <div class="toolbar-actions">
+          <button class="secondary" id="clear-selection-bar" type="button">Clear Selection</button>
+          <button class="secondary" id="open-remediation" type="button">Open Remediation</button>
+        </div>
+      </section>
+
+      <section class="panel remediation-panel" id="remediation-panel">
+        <div class="remediation-head">
+          <div>
+            <h3>Remediation</h3>
+            <p>
+              Generate a PowerShell removal script for critical links or for links you explicitly selected in the page.
+            </p>
+          </div>
+          <div class="priority-toolbar">
+            <button class="secondary remediation-toggle" id="toggle-remediation" type="button" aria-expanded="false" aria-controls="remediation-body">
+              Show remediation <i class="fa-solid fa-chevron-down" aria-hidden="true"></i>
+            </button>
+          </div>
+        </div>
+        <div class="remediation-body" id="remediation-body" aria-hidden="true">
+          <div class="remediation-grid">
+            <section class="panel remediation-card">
+              <div class="toolbar">
+                <div>
+                  <h3>Critical Links</h3>
+                  <p>Generates a PowerShell removal script for links that score as <strong>Critical</strong> in the current filtered view.</p>
+                </div>
+                <div class="toolbar-actions">
+                  <button class="secondary" id="copy-critical-script" type="button">Copy Script</button>
+                </div>
+              </div>
+              <div class="remediation-meta" id="critical-script-meta">No critical remediation candidates yet.</div>
+              <div class="script-preview">
+                <pre class="script-preview-scroll script-preview-content empty" id="critical-script-preview">Load a CSV to generate a remediation script for critical links.</pre>
+              </div>
+            </section>
+
+            <section class="panel remediation-card">
+              <div class="toolbar">
+                <div>
+                  <h3>Selected Links</h3>
+                  <p>Select links from <strong>Urgent Review</strong> or <strong>Raw Rows</strong>, then copy the PowerShell script for that exact set.</p>
+                </div>
+                <div class="toolbar-actions">
+                  <button class="secondary" id="clear-selection" type="button">Clear Selection</button>
+                  <button class="secondary" id="copy-selected-script" type="button">Copy Script</button>
+                </div>
+              </div>
+              <div class="remediation-meta" id="selected-script-meta">No links selected yet.</div>
+              <div class="script-preview">
+                <pre class="script-preview-scroll script-preview-content empty" id="selected-script-preview">Select one or more links to generate a remediation script.</pre>
+              </div>
+            </section>
+          </div>
         </div>
       </section>
     </section>
@@ -1178,7 +1456,8 @@
       rowToNodeId: new Map(),
       selectedNodeId: null,
       priorityFindings: [],
-      priorityVisibleCount: PRIORITY_BATCH_SIZE
+      priorityVisibleCount: PRIORITY_BATCH_SIZE,
+      selectedRowIds: new Set()
     };
 
     const elements = {
@@ -1193,6 +1472,19 @@
       results: document.getElementById("results"),
       guidePanel: document.getElementById("guide-panel"),
       summaryGrid: document.getElementById("summary-grid"),
+      selectionSummary: document.getElementById("selection-summary"),
+      clearSelectionBar: document.getElementById("clear-selection-bar"),
+      openRemediation: document.getElementById("open-remediation"),
+      remediationPanel: document.getElementById("remediation-panel"),
+      remediationBody: document.getElementById("remediation-body"),
+      toggleRemediation: document.getElementById("toggle-remediation"),
+      criticalScriptMeta: document.getElementById("critical-script-meta"),
+      criticalScriptPreview: document.getElementById("critical-script-preview"),
+      selectedScriptMeta: document.getElementById("selected-script-meta"),
+      selectedScriptPreview: document.getElementById("selected-script-preview"),
+      copyCriticalScript: document.getElementById("copy-critical-script"),
+      copySelectedScript: document.getElementById("copy-selected-script"),
+      clearSelection: document.getElementById("clear-selection"),
       priorityCard: document.querySelector(".priority-card"),
       priorityBody: document.getElementById("priority-body"),
       priorityList: document.getElementById("priority-list"),
@@ -1207,6 +1499,8 @@
       detailPane: document.getElementById("detail-pane"),
       tableBody: document.getElementById("table-body"),
       tableMeta: document.getElementById("table-meta"),
+      selectVisibleRows: document.getElementById("select-visible-rows"),
+      clearVisibleRows: document.getElementById("clear-visible-rows"),
       treeSearch: document.getElementById("tree-search"),
       statusFilter: document.getElementById("status-filter")
     };
@@ -1214,6 +1508,15 @@
     function setStatus(message, isError = false) {
       elements.statusText.textContent = message;
       elements.statusText.style.color = isError ? "var(--danger)" : "var(--muted)";
+    }
+
+    function setRemediationOpen(isOpen) {
+      elements.remediationPanel.classList.toggle("is-open", isOpen);
+      elements.remediationBody.setAttribute("aria-hidden", String(!isOpen));
+      elements.toggleRemediation.setAttribute("aria-expanded", String(isOpen));
+      elements.toggleRemediation.innerHTML = isOpen
+        ? 'Hide remediation <i class="fa-solid fa-chevron-down" aria-hidden="true"></i>'
+        : 'Show remediation <i class="fa-solid fa-chevron-down" aria-hidden="true"></i>';
     }
 
     function setPriorityOpen(isOpen) {
@@ -1581,6 +1884,138 @@
       return { label: "Watch", className: "watch" };
     }
 
+    function isRowSelected(rowId) {
+      return state.selectedRowIds.has(rowId);
+    }
+
+    function toggleRowSelection(rowId, isSelected) {
+      if (isSelected) {
+        state.selectedRowIds.add(rowId);
+      } else {
+        state.selectedRowIds.delete(rowId);
+      }
+    }
+
+    function getSelectedRows() {
+      return state.rows.filter((row) => state.selectedRowIds.has(row._id));
+    }
+
+    function getCriticalRows(rows) {
+      return computePriorityFindings(rows).filter((finding) => getPrioritySeverity(finding.score).label === "Critical").map((finding) => finding.row);
+    }
+
+    function getRemediationKey(row) {
+      return [row._safeItemType, row.ItemPath, row.LinkId].join("||");
+    }
+
+    function getRemediableRows(rows) {
+      const seen = new Set();
+
+      return rows.filter((row) => {
+        if (!row || !row.ItemPath || !row.LinkId) {
+          return false;
+        }
+
+        const type = String(row._safeItemType || "").toLowerCase();
+        if (type !== "file" && type !== "folder") {
+          return false;
+        }
+
+        const key = getRemediationKey(row);
+        if (seen.has(key)) {
+          return false;
+        }
+        seen.add(key);
+        return true;
+      });
+    }
+
+    function toPowerShellString(value) {
+      return `'${String(value ?? "").replace(/'/g, "''")}'`;
+    }
+
+    function buildRemediationScript(rows, label) {
+      const remediableRows = getRemediableRows(rows);
+      if (!remediableRows.length) {
+        return "";
+      }
+
+      const lines = [
+        `# SharePoint Link Analyzer remediation export`,
+        `# Scope: ${label}`,
+        `# Links: ${remediableRows.length}`,
+        ``,
+        `$links = @(`,
+        ...remediableRows.map((row, index) => {
+          const prefix = index === remediableRows.length - 1 ? "" : ",";
+          return [
+            `    [PSCustomObject]@{`,
+            `        ItemType = ${toPowerShellString(row._safeItemType)}`,
+            `        ItemPath = ${toPowerShellString(row.ItemPath)}`,
+            `        LinkId   = ${toPowerShellString(row.LinkId)}`,
+            `        SiteTitle = ${toPowerShellString(row.SiteTitle || "")}`,
+            `        ItemName = ${toPowerShellString(row.ItemName || "")}`,
+            `    }${prefix}`
+          ].join("\n");
+        }),
+        `)`,
+        ``,
+        `foreach ($link in $links) {`,
+        `    $itemType = $link.ItemType`,
+        `    $itemPath = $link.ItemPath`,
+        `    $linkId = $link.LinkId`,
+        ``,
+        `    if ($itemType -eq "File") {`,
+        `        Remove-PnPFileSharingLink -FileUrl $itemPath -Identity $linkId -Force`,
+        `    }`,
+        `    else {`,
+        `        Remove-PnPFolderSharingLink -Folder $itemPath -Identity $linkId -Force`,
+        `    }`,
+        `}`
+      ];
+
+      return lines.flat().join("\n").trim();
+    }
+
+    async function copyText(text, successMessage, emptyMessage) {
+      if (!text) {
+        setStatus(emptyMessage, true);
+        return;
+      }
+
+      try {
+        await navigator.clipboard.writeText(text);
+        setStatus(successMessage);
+      } catch (error) {
+        console.error(error);
+        setStatus("Clipboard copy failed.", true);
+      }
+    }
+
+    function renderRemediation() {
+      const criticalRows = getCriticalRows(state.filteredRows);
+      const criticalScript = buildRemediationScript(criticalRows, "Critical links in current filtered view");
+      const selectedRows = getSelectedRows();
+      const selectedScript = buildRemediationScript(selectedRows, "Manually selected links");
+      const remediableSelected = getRemediableRows(selectedRows);
+
+      elements.criticalScriptMeta.textContent = criticalRows.length
+        ? `${getRemediableRows(criticalRows).length} critical removable links based on the current filters.`
+        : "No critical remediation candidates in the current filtered view.";
+      elements.criticalScriptPreview.textContent = criticalScript || "No critical links currently qualify for remediation script generation.";
+      elements.criticalScriptPreview.classList.toggle("empty", !criticalScript);
+
+      elements.selectedScriptMeta.textContent = remediableSelected.length
+        ? `${remediableSelected.length} selected removable links ready for remediation.`
+        : "No links selected yet.";
+      elements.selectedScriptPreview.textContent = selectedScript || "Select one or more links from Urgent Review or Raw Rows to generate a remediation script.";
+      elements.selectedScriptPreview.classList.toggle("empty", !selectedScript);
+
+      elements.selectionSummary.textContent = remediableSelected.length
+        ? `${remediableSelected.length} removable links selected. Open remediation to copy the PowerShell script, or keep refining the selection in Urgent Review and Raw Rows.`
+        : "No links selected yet. Select links from Urgent Review or Raw Rows to prepare remediation.";
+    }
+
     function renderPriorityFindings(findings) {
       state.priorityFindings = findings;
 
@@ -1615,6 +2050,7 @@
             <div class="priority-reasons">${reasons}</div>
             <div class="priority-meta">Path: <code>${escapeHtml(row.ItemPath || "-")}</code></div>
             <div class="priority-actions">
+              <button class="secondary" type="button" data-priority-select-id="${escapeHtml(row._id)}">${isRowSelected(row._id) ? "Selected" : "Select link"}</button>
               <button class="secondary" type="button" data-priority-row-id="${escapeHtml(row._id)}">Review in tree</button>
               ${itemUrl ? `<a class="button-like secondary" href="${escapeHtml(itemUrl)}" target="_blank" rel="noreferrer noopener">Open item</a>` : ""}
             </div>
@@ -1629,6 +2065,14 @@
           if (nodeId) {
             selectNodeInTree(nodeId, { scroll: true });
           }
+        });
+      });
+
+      elements.priorityList.querySelectorAll("[data-priority-select-id]").forEach((button) => {
+        button.addEventListener("click", () => {
+          const rowId = button.dataset.prioritySelectId;
+          toggleRowSelection(rowId, !isRowSelected(rowId));
+          renderAll();
         });
       });
 
@@ -1797,7 +2241,7 @@
       }
 
       const primaryRow = node.rows[0];
-      const blocks = [
+      const primaryBlocks = [
         ["Node", node.name],
         ["Type", node.type],
         ["Rows", String(node.totals.rows)],
@@ -1808,28 +2252,47 @@
         ["Site", primaryRow?.SiteTitle || "-"],
         ["Library", primaryRow?.LibraryTitle || "-"],
         ["Item", primaryRow?.ItemName || "-"],
+        ["Expiration", primaryRow?.Expiration || "-"]
+      ];
+      const secondaryBlocks = [
         ["Path", primaryRow?.ItemPath || "-"],
         ["Granted To", primaryRow?._recipients.join(", ") || "-"],
-        ["LinkId", primaryRow?.LinkId || "-"],
-        ["Expiration", primaryRow?.Expiration || "-"]
+        ["LinkId", primaryRow?.LinkId || "-"]
       ];
 
       elements.detailPane.innerHTML = `
-        <div class="detail-grid">
-          ${blocks.map(([label, value]) => `
-            <div class="detail-item">
-              <strong>${escapeHtml(label)}</strong>
-              <div>${label.includes("Path") || label === "LinkId" ? `<code>${escapeHtml(value)}</code>` : escapeHtml(value)}</div>
-            </div>
-          `).join("")}
+        <div class="detail-section">
+          <div class="detail-section-title">Summary</div>
+          <div class="detail-grid">
+            ${primaryBlocks.map(([label, value]) => `
+              <div class="detail-item">
+                <strong>${escapeHtml(label)}</strong>
+                <div>${escapeHtml(value)}</div>
+              </div>
+            `).join("")}
+          </div>
+        </div>
+        <div class="detail-section">
+          <div class="detail-section-title">Context</div>
+          <div class="detail-grid">
+            ${secondaryBlocks.map(([label, value]) => `
+              <div class="detail-item">
+                <strong>${escapeHtml(label)}</strong>
+                <div>${label.includes("Path") || label === "LinkId" ? `<code>${escapeHtml(value)}</code>` : escapeHtml(value)}</div>
+              </div>
+            `).join("")}
+          </div>
         </div>
       `;
     }
 
     function renderTable(rows) {
-      elements.tableMeta.textContent = `${rows.length} rows visible`;
-      elements.tableBody.innerHTML = rows.slice(0, 250).map((row) => `
-        <tr data-row-id="${escapeHtml(row._id)}">
+      const visibleRows = rows.slice(0, 250);
+      const visibleSelectedCount = visibleRows.filter((row) => isRowSelected(row._id)).length;
+      elements.tableMeta.textContent = `${rows.length} rows visible • ${visibleSelectedCount} selected in table view`;
+      elements.tableBody.innerHTML = visibleRows.map((row) => `
+        <tr data-row-id="${escapeHtml(row._id)}" class="${isRowSelected(row._id) ? "selected" : ""}">
+          <td><input class="row-select" type="checkbox" data-select-row-id="${escapeHtml(row._id)}" ${isRowSelected(row._id) ? "checked" : ""}></td>
           <td>${escapeHtml(row.SiteTitle)}</td>
           <td>${escapeHtml(row.LibraryTitle)}</td>
           <td>${escapeHtml(row.ItemName)}</td>
@@ -1839,6 +2302,18 @@
           <td><code>${escapeHtml(row.LinkId || "-")}</code></td>
         </tr>
       `).join("");
+
+      elements.tableBody.querySelectorAll("[data-select-row-id]").forEach((checkbox) => {
+        checkbox.addEventListener("click", (event) => {
+          event.stopPropagation();
+        });
+
+        checkbox.addEventListener("change", (event) => {
+          const rowId = event.currentTarget.dataset.selectRowId;
+          toggleRowSelection(rowId, event.currentTarget.checked);
+          renderAll();
+        });
+      });
 
       elements.tableBody.querySelectorAll("tr[data-row-id]").forEach((tableRow) => {
         tableRow.addEventListener("click", () => {
@@ -1939,6 +2414,22 @@
       }
     }
 
+    function focusRowInTable(rowId) {
+      const tableRow = elements.tableBody.querySelector(`tr[data-row-id="${CSS.escape(rowId)}"]`);
+      if (!tableRow) {
+        const visibleLimit = 250;
+        const index = state.filteredRows.findIndex((row) => row._id === rowId);
+        if (index >= visibleLimit) {
+          setStatus(`The matching raw row exists but is outside the first ${visibleLimit} visible rows. Narrow your filters to bring it into view.`, true);
+        }
+        return;
+      }
+
+      elements.tableBody.querySelectorAll("tr").forEach((row) => row.classList.remove("active"));
+      tableRow.classList.add("active");
+      tableRow.scrollIntoView({ block: "center", behavior: "smooth" });
+    }
+
     function renderTree(tree) {
       if (!tree || !tree.children.length) {
         elements.treeRoot.innerHTML = `<div class="empty">No nodes found for the current filter.</div>`;
@@ -1953,6 +2444,12 @@
         element.addEventListener("click", (event) => {
           const nodeId = event.currentTarget.dataset.nodeId;
           const toggle = event.target.closest(".toggle");
+          const rawButton = event.target.closest("[data-show-raw-id]");
+          if (rawButton) {
+            event.stopPropagation();
+            focusRowInTable(rawButton.dataset.showRawId);
+            return;
+          }
           if (toggle) {
             const group = event.currentTarget.nextElementSibling;
             if (group) {
@@ -1976,6 +2473,7 @@
       const hasChildren = node.children.length > 0;
       const icon = getNodeIcon(node.type);
       const iconClass = getNodeIconClass(node.type);
+      const firstRowId = node.rows[0]?._id || "";
       const badges = [
         node.totals.expired ? `<span class="badge danger">${node.totals.expired} expired</span>` : "",
         node.totals.noExpiration ? `<span class="badge warn">${node.totals.noExpiration} no expiry</span>` : "",
@@ -1986,10 +2484,14 @@
         <div class="tree-node" data-node-id="${escapeHtml(node.id)}">
           <span class="toggle">${hasChildren ? '<i class="fa-solid fa-chevron-right" aria-hidden="true"></i>' : ""}</span>
           <span class="node-icon ${escapeHtml(iconClass)}"><i class="${escapeHtml(icon)}" aria-hidden="true"></i></span>
-          <span class="node-type">${escapeHtml(formatNodeType(node.type))}</span>
-          <span class="node-name">${escapeHtml(node.name)}</span>
-          ${node.href ? `<a class="node-link" href="${escapeHtml(node.href)}" target="_blank" rel="noreferrer noopener" aria-label="Open ${escapeHtml(node.name)}"><i class="fa-solid fa-arrow-up-right-from-square" aria-hidden="true"></i></a>` : ""}
-          ${badges}
+          <div class="node-main">
+            <div class="node-heading">
+              <span class="node-type">${escapeHtml(formatNodeType(node.type))}</span>
+              <span class="node-name" title="${escapeHtml(node.name)}">${escapeHtml(node.name)}</span>
+              ${firstRowId ? `<button class="node-action secondary" type="button" data-show-raw-id="${escapeHtml(firstRowId)}" aria-label="Show ${escapeHtml(node.name)} in raw view"><i class="fa-solid fa-table-list" aria-hidden="true"></i></button>` : ""}
+            </div>
+            ${badges ? `<div class="node-badges">${badges}</div>` : ""}
+          </div>
         </div>
         ${hasChildren ? `<div class="tree-group hidden">${node.children.map((child) => renderNode(child)).join("")}</div>` : ""}
       `;
@@ -2003,6 +2505,7 @@
       state.rowToNodeId = built.rowToNodeId;
 
       renderSummary(state.filteredRows);
+      renderRemediation();
       renderPriorityFindings(computePriorityFindings(state.filteredRows));
       renderCharts(state.filteredRows);
       renderTree(state.tree);
@@ -2066,6 +2569,7 @@
         const rawRows = parseCSV(text);
         validateColumns(rawRows);
         state.rows = rawRows.map(normalizeRow);
+        state.selectedRowIds = new Set();
         setStatus(`CSV loaded from ${sourceLabel}.`);
         renderAll();
       } catch (error) {
@@ -2164,6 +2668,11 @@
       setGuideOpen(!isOpen);
     });
 
+    elements.toggleRemediation.addEventListener("click", () => {
+      const isOpen = elements.remediationPanel.classList.contains("is-open");
+      setRemediationOpen(!isOpen);
+    });
+
     elements.togglePriority.addEventListener("click", () => {
       const isOpen = elements.priorityCard.classList.contains("is-open");
       setPriorityOpen(!isOpen);
@@ -2172,6 +2681,51 @@
     elements.loadMorePriority.addEventListener("click", () => {
       state.priorityVisibleCount += PRIORITY_BATCH_SIZE;
       renderPriorityFindings(state.priorityFindings);
+    });
+
+    elements.copyCriticalScript.addEventListener("click", () => {
+      copyText(
+        buildRemediationScript(getCriticalRows(state.filteredRows), "Critical links in current filtered view"),
+        "Critical remediation script copied.",
+        "No critical remediation script available to copy."
+      );
+    });
+
+    elements.copySelectedScript.addEventListener("click", () => {
+      copyText(
+        buildRemediationScript(getSelectedRows(), "Manually selected links"),
+        "Selected remediation script copied.",
+        "No selected remediation script available to copy."
+      );
+    });
+
+    elements.clearSelection.addEventListener("click", () => {
+      state.selectedRowIds = new Set();
+      renderAll();
+      setStatus("Selection cleared.");
+    });
+
+    elements.clearSelectionBar.addEventListener("click", () => {
+      state.selectedRowIds = new Set();
+      renderAll();
+      setStatus("Selection cleared.");
+    });
+
+    elements.openRemediation.addEventListener("click", () => {
+      setRemediationOpen(true);
+      elements.remediationPanel.scrollIntoView({ block: "start", behavior: "smooth" });
+    });
+
+    elements.selectVisibleRows.addEventListener("click", () => {
+      state.filteredRows.slice(0, 250).forEach((row) => state.selectedRowIds.add(row._id));
+      renderAll();
+      setStatus("Visible rows selected.");
+    });
+
+    elements.clearVisibleRows.addEventListener("click", () => {
+      state.filteredRows.slice(0, 250).forEach((row) => state.selectedRowIds.delete(row._id));
+      renderAll();
+      setStatus("Visible rows cleared from selection.");
     });
 
     elements.closeGuide.addEventListener("click", () => {
@@ -2190,6 +2744,7 @@
       }
     });
 
+    setRemediationOpen(false);
     setPriorityOpen(false);
   </script>
 </body>

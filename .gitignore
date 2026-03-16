@@ -42,6 +42,7 @@ pids/
 # Data and backups
 api/data/
 api/data/*.json
+*.csv
 SPO_SharingLinks_*.csv
 *.backup
 *.backup.ps1
