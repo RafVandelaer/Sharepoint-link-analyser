@@ -1329,6 +1329,20 @@
         .filter(Boolean);
     }
 
+    function safeDecodePathSegment(value) {
+      const segment = String(value || "");
+
+      try {
+        return decodeURIComponent(segment);
+      } catch (_) {
+        try {
+          return decodeURIComponent(segment.replace(/%(?![0-9A-Fa-f]{2})/g, "%25"));
+        } catch (_) {
+          return segment;
+        }
+      }
+    }
+
     function normalizeRow(row, index) {
       const expirationDate = parseDate(row.Expiration);
       const now = new Date();
@@ -1344,7 +1358,10 @@
         ? row.ItemPath.slice(sitePath.length)
         : row.ItemPath;
 
-      const rawSegments = relativeItemPath.split("/").map((segment) => decodeURIComponent(segment).trim()).filter(Boolean);
+      const rawSegments = relativeItemPath
+        .split("/")
+        .map((segment) => safeDecodePathSegment(segment).trim())
+        .filter(Boolean);
       const folderSegments = rawSegments.slice(1, Math.max(rawSegments.length - 1, 1));
 
       return {
